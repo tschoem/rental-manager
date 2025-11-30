@@ -51,3 +51,6 @@ prisma/*.db
 prisma/*.db-journal
 prisma/*.db-shm
 prisma/*.db-wal
+
+# generated code
+/generated
