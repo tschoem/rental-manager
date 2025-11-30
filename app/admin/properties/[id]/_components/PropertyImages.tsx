@@ -1,0 +1,191 @@
+'use client';
+
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { addPropertyImage, deletePropertyImage, deletePropertyImages } from '@/app/admin/actions';
+
+interface PropertyImagesProps {
+    propertyId: string;
+    images: { id: string; url: string }[];
+}
+
+export default function PropertyImages({ propertyId, images: initialImages }: PropertyImagesProps) {
+    const [images, setImages] = useState(initialImages);
+    const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
+    const [newImageUrl, setNewImageUrl] = useState('');
+    const [isPending, startTransition] = useTransition();
+    const router = useRouter();
+
+    const handleToggleImageSelection = (imageId: string) => {
+        setSelectedImages(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(imageId)) {
+                newSet.delete(imageId);
+            } else {
+                newSet.add(imageId);
+            }
+            return newSet;
+        });
+    };
+
+    const handleSelectAll = () => {
+        if (selectedImages.size === images.length) {
+            setSelectedImages(new Set());
+        } else {
+            setSelectedImages(new Set(images.map(img => img.id)));
+        }
+    };
+
+    const handleAddImage = async () => {
+        if (newImageUrl.trim()) {
+            startTransition(async () => {
+                await addPropertyImage(propertyId, newImageUrl.trim());
+                setNewImageUrl('');
+                router.refresh();
+            });
+        }
+    };
+
+    const handleDeleteImage = async (imageId: string) => {
+        if (confirm("Are you sure you want to delete this image?")) {
+            startTransition(async () => {
+                await deletePropertyImage(imageId, propertyId);
+                setImages(prev => prev.filter(img => img.id !== imageId));
+                setSelectedImages(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(imageId);
+                    return newSet;
+                });
+            });
+        }
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedImages.size > 0) {
+            if (confirm(`Are you sure you want to delete ${selectedImages.size} image(s)?`)) {
+                startTransition(async () => {
+                    await deletePropertyImages(Array.from(selectedImages), propertyId);
+                    setImages(prev => prev.filter(img => !selectedImages.has(img.id)));
+                    setSelectedImages(new Set());
+                });
+            }
+        }
+    };
+
+    return (
+        <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Property Photos</h2>
+                {images.length > 0 && (
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <button
+                            onClick={handleSelectAll}
+                            className="btn btn-outline"
+                            style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
+                        >
+                            {selectedImages.size === images.length ? 'Deselect All' : 'Select All'}
+                        </button>
+                        {selectedImages.size > 0 && (
+                            <button
+                                onClick={handleBulkDelete}
+                                disabled={isPending}
+                                className="btn btn-outline"
+                                style={{ 
+                                    fontSize: '0.875rem', 
+                                    padding: '0.5rem 1rem',
+                                    color: '#c00',
+                                    borderColor: '#c00'
+                                }}
+                            >
+                                Delete Selected ({selectedImages.size})
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {images.length === 0 ? (
+                <p style={{ color: 'var(--muted)', textAlign: 'center', padding: '2rem' }}>No images added yet.</p>
+            ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                    {images.map((image) => {
+                        const isSelected = selectedImages.has(image.id);
+                        return (
+                            <div 
+                                key={image.id} 
+                                style={{ 
+                                    position: 'relative', 
+                                    borderRadius: '8px', 
+                                    overflow: 'hidden', 
+                                    border: isSelected ? '3px solid var(--primary)' : '1px solid var(--border)',
+                                    cursor: 'pointer',
+                                    opacity: isSelected ? 0.9 : 1,
+                                    transition: 'all 0.2s ease'
+                                }}
+                                onClick={() => handleToggleImageSelection(image.id)}
+                            >
+                                <img src={image.url} alt="Property" style={{ width: '100%', height: '150px', objectFit: 'cover' }} />
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '0.5rem',
+                                    left: '0.5rem',
+                                    width: '24px',
+                                    height: '24px',
+                                    borderRadius: '4px',
+                                    background: isSelected ? 'var(--primary)' : 'rgba(255,255,255,0.9)',
+                                    border: '2px solid white',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'white',
+                                    fontWeight: 'bold',
+                                    fontSize: '0.875rem'
+                                }}>
+                                    {isSelected ? '✓' : ''}
+                                </div>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteImage(image.id);
+                                    }}
+                                    style={{ 
+                                        position: 'absolute', 
+                                        top: '0.5rem', 
+                                        right: '0.5rem', 
+                                        background: 'rgba(255,255,255,0.9)', 
+                                        border: 'none', 
+                                        borderRadius: '4px', 
+                                        padding: '0.25rem 0.5rem', 
+                                        cursor: 'pointer', 
+                                        fontSize: '0.875rem', 
+                                        color: '#c00' 
+                                    }}
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                    type="url"
+                    value={newImageUrl}
+                    onChange={(e) => setNewImageUrl(e.target.value)}
+                    placeholder="Image URL"
+                    style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem' }}
+                />
+                <button 
+                    onClick={handleAddImage} 
+                    disabled={isPending}
+                    className="btn btn-outline"
+                >
+                    Add Image
+                </button>
+            </div>
+        </div>
+    );
+}
+

@@ -1,0 +1,299 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// NextAuth Models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id                String    @id @default(cuid())
+  name              String?
+  email             String?   @unique
+  emailVerified     DateTime?
+  image             String?
+  password          String?   // Hashed password for credentials provider
+  resetToken        String?   // Password reset token
+  resetTokenExpires DateTime? // When the reset token expires
+  accounts          Account[]
+  sessions          Session[]
+  properties        Property[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Domain Models
+
+model SiteSettings {
+  id                 String   @id @default(cuid())
+  singlePropertyMode Boolean  @default(false)
+  
+  // Site Configuration
+  siteUrl            String?  // Full URL of the site (e.g., https://example.com)
+  siteIcon           String?  // Emoji icon for the site
+  siteName           String?  // Site name displayed in header
+  
+  // SEO Settings
+  seoDescription     String?  // Meta description for SEO
+  seoKeywords        String?  // Meta keywords (comma-separated)
+  seoAuthor          String?  // Site author
+  
+  // Currency
+  currency           String?  // Currency code (EUR, USD, GBP, etc.)
+  currencySymbol     String?  // Currency symbol
+  
+  createdAt          DateTime?
+  updatedAt          DateTime?
+}
+
+model AboutPageSettings {
+  id           String  @id @default(cuid())
+  showAboutPage Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model HomePageSettings {
+  id                    String   @id @default(cuid())
+  
+  // Hero Section
+  heroTitle              String?  @default("Your Home away from home")
+  heroSubtitle           String?  @default("Enjoy Family hospitality - close to town, airport and beach")
+  heroCtaText            String?  @default("Explore Rooms")
+  showHeroSection        Boolean  @default(true)
+  
+  // Features Section
+  featuresTitle          String?  @default("Why Choose Us")
+  showFeaturesSection    Boolean  @default(true)
+  
+  // About Section
+  aboutTitle             String?  @default("Experience the Perfect Balance")
+  aboutDescription       String?
+  showAboutSection       Boolean  @default(true)
+  
+  // Properties/Rooms Section
+  roomsTitle             String?  @default("Rooms & Suites")
+  roomsSubtitle          String?
+  showRoomsSection       Boolean  @default(true)
+  
+  // CTA Section
+  ctaTitle               String?  @default("Welcome to Ireland's East Coast")
+  ctaDescription         String?  @default("We look forward to welcoming you to our home.")
+  showCtaSection         Boolean  @default(true)
+  
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  
+  heroImages             HomePageImage[]
+  features               HomePageFeature[]
+}
+
+model HomePageImage {
+  id              String   @id @default(cuid())
+  url              String
+  order            Int      @default(0)
+  homePageSettingsId String
+  homePageSettings HomePageSettings @relation(fields: [homePageSettingsId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+}
+
+model HomePageFeature {
+  id              String   @id @default(cuid())
+  icon             String?  // Emoji or icon identifier
+  title            String
+  description      String
+  order            Int      @default(0)
+  homePageSettingsId String
+  homePageSettings HomePageSettings @relation(fields: [homePageSettingsId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model LocationPageSettings {
+  id                    String   @id @default(cuid())
+  
+  // Hero Section
+  heroImageUrl          String?  @default("/hero-rentalmanager.png")
+  heroTitle             String?  @default("Explore the Area")
+  heroSubtitle          String?  @default("Discover the unique locations near your properties")
+  
+  // Area 1 Section
+  area1Title           String?  @default("Area 1")
+  area1Subtitle        String?  @default("Describe the first area near your properties")
+  area1Content         String?  // Multi-paragraph content
+  area1ImageUrl        String?  @default("/location1.png")
+  
+  // Area 2 Section
+  area2Title           String?  @default("Area 2")
+  area2Subtitle        String?  @default("Describe the second area near your properties")
+  area2Content         String?  // Multi-paragraph content
+  area2ImageUrl        String?  @default("/location2.png")
+  
+  // Map Section
+  mapTitle              String?  @default("Our Location")
+  mapEmbedUrl           String?  // Google Maps embed URL
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model Owner {
+  id            String   @id @default(cuid())
+  name          String
+  bio           String?  // Generated or manual bio
+  profileImage  String?  // Main profile picture URL
+  order         Int      @default(0) // Display order
+  
+  // Social Media Links
+  facebookUrl   String?
+  instagramUrl  String?
+  twitterUrl   String?
+  linkedinUrl   String?
+  airbnbUrl     String?
+  websiteUrl   String?
+  otherLinks    String?  // JSON array of other social links
+  
+  // Scanned data (stored as JSON)
+  scannedData   String?  // JSON with images, summary, etc.
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  images        OwnerImage[]
+}
+
+model OwnerImage {
+  id          String   @id @default(cuid())
+  url         String
+  isProfile   Boolean  @default(false) // Is this the main profile picture?
+  ownerId     String
+  owner       Owner    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+}
+
+model Property {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  address     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  adminId     String
+  admin       User     @relation(fields: [adminId], references: [id])
+  
+  rooms       Room[]
+  images      Image[]
+}
+
+model Room {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Float?
+  capacity    Int?
+  
+  // External Links
+  airbnbUrl   String?
+  showAirbnbLink Boolean @default(true) // If true, show Airbnb link on public page
+  iCalUrl     String?
+  showCalendar Boolean @default(true) // If true, show calendar on public room page
+  
+  // Additional details
+  amenities   String?  // JSON string of amenities array
+  unlisted    Boolean  @default(false) // If true, room won't appear in public listings
+  order       Int      @default(0) // Display order for rooms within a property
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  bookings    Booking[]
+  reviews     Review[]
+  images      Image[]
+}
+
+model Image {
+  id          String   @id @default(cuid())
+  url         String
+  
+  roomId      String?
+  room        Room?    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  
+  propertyId  String?
+  property    Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+}
+
+model Booking {
+  id          String   @id @default(cuid())
+  startDate   DateTime
+  endDate     DateTime
+  
+  guestName   String?
+  guestEmail  String?
+  message     String?  // Optional message from guest
+  
+  status      String   @default("PENDING") // PENDING, CONFIRMED, CANCELLED
+  source      String   @default("DIRECT") // DIRECT, AIRBNB_SYNC
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  roomId      String
+  room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  rating      Int
+  comment     String?
+  authorName  String?
+  date        DateTime?
+  source      String   @default("AIRBNB")
+  
+  createdAt   DateTime @default(now())
+  
+  roomId      String
+  room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+}
