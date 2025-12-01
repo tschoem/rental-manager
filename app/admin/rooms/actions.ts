@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function createRoom(formData: FormData) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -47,6 +48,7 @@ export async function createRoom(formData: FormData) {
 }
 
 export async function updateRoom(roomId: string, formData: FormData) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -87,6 +89,7 @@ export async function updateRoom(roomId: string, formData: FormData) {
 }
 
 export async function addRoomImage(roomId: string, imageUrl: string) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -105,6 +108,7 @@ export async function addRoomImage(roomId: string, imageUrl: string) {
 }
 
 export async function deleteRoomImage(imageId: string, roomId: string) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -135,6 +139,7 @@ export async function deleteRoomImage(imageId: string, roomId: string) {
 }
 
 export async function deleteRoomImages(imageIds: string[], roomId: string) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -174,6 +179,7 @@ export async function deleteRoomImages(imageIds: string[], roomId: string) {
 }
 
 export async function moveRoomImagesToProperty(imageIds: string[], roomId: string) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -241,6 +247,7 @@ export async function moveRoomImagesToProperty(imageIds: string[], roomId: strin
 }
 
 export async function updateRoomAmenities(roomId: string, amenities: string[]) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -255,6 +262,7 @@ export async function updateRoomAmenities(roomId: string, amenities: string[]) {
 }
 
 export async function toggleShowAirbnbLink(roomId: string, showAirbnbLink: boolean) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -268,6 +276,7 @@ export async function toggleShowAirbnbLink(roomId: string, showAirbnbLink: boole
 }
 
 export async function toggleShowCalendar(roomId: string, showCalendar: boolean) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -281,6 +290,7 @@ export async function toggleShowCalendar(roomId: string, showCalendar: boolean) 
 }
 
 export async function toggleRoomUnlisted(roomId: string, unlisted: boolean) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -297,6 +307,7 @@ export async function toggleRoomUnlisted(roomId: string, unlisted: boolean) {
 }
 
 export async function deleteRoom(roomId: string) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -315,6 +326,7 @@ export async function deleteRoom(roomId: string) {
 }
 
 export async function moveRoomUp(roomId: string) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -353,6 +365,7 @@ export async function moveRoomUp(roomId: string) {
 }
 
 export async function moveRoomDown(roomId: string) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -391,6 +404,7 @@ export async function moveRoomDown(roomId: string) {
 }
 
 export async function updateRoomOrders(roomOrders: { roomId: string; order: number }[]) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 

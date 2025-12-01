@@ -372,7 +372,7 @@ async function scanAirbnb(url: string, browser: any): Promise<SocialMediaData> {
             const expandElements = await page.$$('[class*="expand"], [class*="Expand"], [class*="show-more"], [data-testid*="expand"]');
             for (const elem of expandElements) {
                 try {
-                    const text = await page.evaluate(el => el.textContent, elem);
+                    const text = await page.evaluate((el: Element) => el.textContent, elem);
                     if (text && (text.includes('more') || text.includes('Show') || text.includes('Read'))) {
                         await elem.click();
                         await delay(500);
@@ -614,7 +614,7 @@ async function scanAirbnb(url: string, browser: any): Promise<SocialMediaData> {
 
         // Try to get additional images from the profile
         const additionalImages = await page.evaluate(() => {
-            const imgElements = Array.from(document.querySelectorAll('img[src*="a0.muscache"]'));
+            const imgElements = Array.from(document.querySelectorAll('img[src*="a0.muscache"]')) as HTMLImageElement[];
             return imgElements
                 .map(img => img.src)
                 .filter(src => src && src.startsWith('http'))

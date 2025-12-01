@@ -37,6 +37,7 @@ async function getOrCreateLocationPageSettings() {
 
 // Update location page content
 export async function updateLocationPageContent(formData: FormData) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -75,6 +76,7 @@ export async function updateLocationPageContent(formData: FormData) {
 
 // Update hero image
 export async function updateHeroImage(imageUrl: string) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -107,6 +109,7 @@ export async function updateHeroImage(imageUrl: string) {
 
 // Update Area 1 image
 export async function updateArea1Image(imageUrl: string) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -139,6 +142,7 @@ export async function updateArea1Image(imageUrl: string) {
 
 // Update Area 2 image
 export async function updateArea2Image(imageUrl: string) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 

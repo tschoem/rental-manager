@@ -30,6 +30,7 @@ async function getOrCreateSiteSettings() {
 
 // Update site configuration
 export async function updateSiteSettings(formData: FormData) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 

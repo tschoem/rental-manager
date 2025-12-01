@@ -27,6 +27,7 @@ export async function toggleSinglePropertyMode(enabled: boolean) {
 }
 
 export async function createProperty(formData: FormData) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session || !session.user?.email) {
         throw new Error("Unauthorized");
@@ -65,6 +66,7 @@ export async function createProperty(formData: FormData) {
 }
 
 export async function updateProperty(id: string, formData: FormData) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -83,6 +85,7 @@ export async function updateProperty(id: string, formData: FormData) {
 }
 
 export async function importListing(formData: FormData) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -191,6 +194,7 @@ export async function importListing(formData: FormData) {
 }
 
 export async function addPropertyImage(propertyId: string, imageUrl: string) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -209,6 +213,7 @@ export async function addPropertyImage(propertyId: string, imageUrl: string) {
 }
 
 export async function deletePropertyImage(imageId: string, propertyId: string) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -239,6 +244,7 @@ export async function deletePropertyImage(imageId: string, propertyId: string) {
 }
 
 export async function deletePropertyImages(imageIds: string[], propertyId: string) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 

@@ -23,7 +23,7 @@ const config: runtime.GetPrismaClientConfig = {
       "value": "prisma-client"
     },
     "output": {
-      "value": "/Users/thomasschoemaecker/Documents/rental_manager/generated/client",
+      "value": "/Users/thomasschoemaecker/Documents/GitHub/rental-manager/generated/client",
       "fromEnvVar": null
     },
     "config": {
@@ -37,7 +37,7 @@ const config: runtime.GetPrismaClientConfig = {
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "/Users/thomasschoemaecker/Documents/rental_manager/prisma/schema.prisma",
+    "sourceFilePath": "/Users/thomasschoemaecker/Documents/GitHub/rental-manager/prisma/schema.prisma",
     "isCustomOutput": true
   },
   "relativePath": "../../prisma",
@@ -47,6 +47,7 @@ const config: runtime.GetPrismaClientConfig = {
     "db"
   ],
   "activeProvider": "sqlite",
+  "postinstall": false,
   "inlineDatasources": {
     "db": {
       "url": {

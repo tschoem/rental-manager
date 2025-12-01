@@ -5,6 +5,9 @@ import Link from "next/link";
 import OwnerForm from "../_components/OwnerForm";
 
 export default async function NewOwnerPage() {
+    if (!authOptions) {
+        redirect("/");
+    }
     const session = await getServerSession(authOptions);
     if (!session) {
         redirect("/auth/signin?callbackUrl=/admin/about/owners/new");

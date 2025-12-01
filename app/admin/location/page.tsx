@@ -38,6 +38,9 @@ async function getOrCreateLocationPageSettings() {
 }
 
 export default async function LocationPageAdmin() {
+    if (!authOptions) {
+        redirect("/");
+    }
     const session = await getServerSession(authOptions);
     if (!session) {
         redirect("/auth/signin?callbackUrl=/admin/location");

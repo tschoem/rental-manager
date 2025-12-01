@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Authentication service unavailable. Database not configured.' }, { status: 503 });
     }
     
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(authOptions as NonNullable<typeof authOptions>);
     if (!session) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

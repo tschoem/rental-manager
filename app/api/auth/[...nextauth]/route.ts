@@ -254,6 +254,27 @@ export async function GET(req: NextRequest, context: any) {
   try {
     return await handler(req, context);
   } catch (error: any) {
+    // Handle JWT decryption errors (usually means session cookie is invalid/encrypted with different secret)
+    const isJwtError = error?.message?.includes('decryption operation failed') ||
+      error?.code === 'JWT_SESSION_ERROR' ||
+      (error instanceof Error && error.message.includes('decryption'));
+    
+    if (isJwtError) {
+      // For session requests with JWT errors, return empty session and clear invalid cookie
+      if (isSessionRequest) {
+        const response = NextResponse.json({ user: null, expires: null });
+        // Clear the invalid session cookie
+        response.cookies.delete('next-auth.session-token');
+        response.cookies.delete('__Secure-next-auth.session-token');
+        return response;
+      }
+      // For other requests, redirect to sign-in to clear the invalid session
+      const callbackUrl = url.searchParams.get('callbackUrl') || '/admin';
+      const redirectUrl = `/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`;
+      const baseUrl = new URL(req.url).origin;
+      return NextResponse.redirect(new URL(redirectUrl, baseUrl), { status: 307 });
+    }
+
     // For session requests, return empty session on error instead of error response
     if (isSessionRequest) {
       return NextResponse.json({ user: null, expires: null });
@@ -303,6 +324,27 @@ export async function POST(req: NextRequest, context: any) {
   try {
     return await handler(req, context);
   } catch (error: any) {
+    // Handle JWT decryption errors (usually means session cookie is invalid/encrypted with different secret)
+    const isJwtError = error?.message?.includes('decryption operation failed') ||
+      error?.code === 'JWT_SESSION_ERROR' ||
+      (error instanceof Error && error.message.includes('decryption'));
+    
+    if (isJwtError) {
+      // For sign-in requests with JWT errors, redirect to sign-in page to clear invalid session
+      if (isSignInRequest) {
+        const callbackUrl = url.searchParams.get('callbackUrl') || '/admin';
+        const redirectUrl = `/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`;
+        const baseUrl = new URL(req.url).origin;
+        const response = NextResponse.redirect(new URL(redirectUrl, baseUrl), { status: 307 });
+        // Clear the invalid session cookie
+        response.cookies.delete('next-auth.session-token');
+        response.cookies.delete('__Secure-next-auth.session-token');
+        return response;
+      }
+      // For other requests, return error but suggest clearing cookies
+      return createErrorResponse('Session expired or invalid. Please clear your browser cookies and sign in again.', 401);
+    }
+
     // Catch "Invalid URL" errors which can occur when NextAuth tries to construct URLs
     if (error?.code === 'ERR_INVALID_URL' ||
       (error instanceof Error && error.message.includes('Invalid URL')) ||

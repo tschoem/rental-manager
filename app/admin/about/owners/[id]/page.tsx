@@ -8,6 +8,9 @@ import OwnerForm from "../_components/OwnerForm";
 export const dynamic = 'force-dynamic';
 
 export default async function EditOwnerPage({ params }: { params: Promise<{ id: string }> }) {
+    if (!authOptions) {
+        redirect("/");
+    }
     const session = await getServerSession(authOptions);
     if (!session) {
         redirect("/auth/signin?callbackUrl=/admin/about");

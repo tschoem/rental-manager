@@ -44,9 +44,13 @@ async function getOrCreateHomePageSettings() {
         await prisma.homePageFeature.createMany({
             data: defaultFeatures.map(f => ({
                 ...f,
-                homePageSettingsId: settings.id
+                homePageSettingsId: settings!.id
             }))
         });
+    }
+    
+    if (!settings) {
+        throw new Error("Failed to create or retrieve home page settings");
     }
     
     return settings;
@@ -54,6 +58,7 @@ async function getOrCreateHomePageSettings() {
 
 // Update home page text content
 export async function updateHomePageContent(formData: FormData) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -128,6 +133,7 @@ export async function updateHomePageContent(formData: FormData) {
 
 // Toggle section visibility
 export async function toggleSectionVisibility(section: string, visible: boolean) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -147,6 +153,7 @@ export async function toggleSectionVisibility(section: string, visible: boolean)
 
 // Add hero image
 export async function addHeroImage(imageUrl: string) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -177,6 +184,7 @@ export async function addHeroImage(imageUrl: string) {
 
 // Delete hero image
 export async function deleteHeroImage(imageId: string) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -206,6 +214,7 @@ export async function deleteHeroImage(imageId: string) {
 
 // Delete multiple hero images
 export async function deleteHeroImages(imageIds: string[]) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -235,6 +244,7 @@ export async function deleteHeroImages(imageIds: string[]) {
 
 // Update hero image order
 export async function updateHeroImageOrder(imageOrders: { imageId: string; order: number }[]) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -253,6 +263,7 @@ export async function updateHeroImageOrder(imageOrders: { imageId: string; order
 
 // Create feature
 export async function createFeature(formData: FormData) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -286,6 +297,7 @@ export async function createFeature(formData: FormData) {
 
 // Update feature
 export async function updateFeature(featureId: string, formData: FormData) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -308,6 +320,7 @@ export async function updateFeature(featureId: string, formData: FormData) {
 
 // Delete feature
 export async function deleteFeature(featureId: string) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 
@@ -321,6 +334,7 @@ export async function deleteFeature(featureId: string) {
 
 // Update feature order
 export async function updateFeatureOrder(featureOrders: { featureId: string; order: number }[]) {
+    if (!authOptions) throw new Error("Authentication not configured");
     const session = await getServerSession(authOptions);
     if (!session) throw new Error("Unauthorized");
 

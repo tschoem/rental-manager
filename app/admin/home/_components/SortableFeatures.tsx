@@ -40,6 +40,7 @@ function SortableFeatureItem({
     onSave,
     onDelete, 
     onCancel,
+    onSaveNew,
     isEditing 
 }: { 
     feature: HomePageFeature; 
@@ -47,6 +48,7 @@ function SortableFeatureItem({
     onSave: (feature: HomePageFeature) => void;
     onDelete: (id: string) => void;
     onCancel: () => void;
+    onSaveNew?: () => void;
     isEditing: boolean;
 }) {
     const {
@@ -70,7 +72,7 @@ function SortableFeatureItem({
                 feature={feature}
                 onSave={onSave}
                 onCancel={onCancel}
-                onSaveNew={feature.id.startsWith('new-') ? handleSaveNew : undefined}
+                onSaveNew={feature.id.startsWith('new-') ? onSaveNew : undefined}
             />
         );
     }
@@ -371,6 +373,7 @@ export default function SortableFeatures({ features, settingsId }: SortableFeatu
                                 onSave={handleSave}
                                 onDelete={handleDelete}
                                 onCancel={handleCancelEdit}
+                                onSaveNew={handleSaveNew}
                                 isEditing={editingFeatureId === feature.id}
                             />
                         ))}
