@@ -2,7 +2,7 @@ import { PrismaClient } from '../generated/client/client';
 import { execSync } from 'child_process';
 import { existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
-import { resolveDatabasePath } from './db-path';
+import { resolveDatabasePath, normalizeDatabaseUrl } from './db-path';
 
 // Cache to prevent multiple simultaneous setup attempts
 let setupInProgress = false;
@@ -33,6 +33,16 @@ async function isDatabaseInitialized(): Promise<boolean> {
     }
   }
 
+  // Use normalized absolute path for Prisma Client to ensure consistency
+  // This prevents path resolution issues between Prisma CLI and Prisma Client
+  const normalizedUrl = databaseUrl.startsWith('file:') 
+    ? normalizeDatabaseUrl(databaseUrl)
+    : databaseUrl;
+  
+  // Temporarily override DATABASE_URL with normalized path for this check
+  const originalUrl = process.env.DATABASE_URL;
+  process.env.DATABASE_URL = normalizedUrl;
+
   try {
     const prisma = new PrismaClient();
     await prisma.$connect();
@@ -49,15 +59,17 @@ async function isDatabaseInitialized(): Promise<boolean> {
       // PostgreSQL or MySQL - try to query information_schema
       try {
         if (databaseUrl.startsWith('postgresql:') || databaseUrl.startsWith('postgres:')) {
-          tables = await prisma.$queryRaw<Array<{ table_name: string }>>`
+          const pgTables = await prisma.$queryRaw<Array<{ name: string }>>`
             SELECT table_name as name FROM information_schema.tables 
             WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
           `;
+          tables = pgTables;
         } else if (databaseUrl.startsWith('mysql:')) {
-          tables = await prisma.$queryRaw<Array<{ table_name: string }>>`
+          const mysqlTables = await prisma.$queryRaw<Array<{ name: string }>>`
             SELECT table_name as name FROM information_schema.tables 
             WHERE table_schema = DATABASE()
           `;
+          tables = mysqlTables;
         }
       } catch (error) {
         // If we can't query information_schema, try a simple query to see if any tables exist
@@ -66,6 +78,8 @@ async function isDatabaseInitialized(): Promise<boolean> {
           await prisma.user.findFirst({ take: 1 });
           // If this succeeds, database is likely initialized
           await prisma.$disconnect();
+          // Restore original DATABASE_URL
+          if (originalUrl) process.env.DATABASE_URL = originalUrl;
           return true;
         } catch {
           // If this fails, database is not initialized
@@ -74,8 +88,12 @@ async function isDatabaseInitialized(): Promise<boolean> {
     }
     
     await prisma.$disconnect();
+    // Restore original DATABASE_URL
+    if (originalUrl) process.env.DATABASE_URL = originalUrl;
     return tables.length > 0;
   } catch (error) {
+    // Restore original DATABASE_URL on error
+    if (originalUrl) process.env.DATABASE_URL = originalUrl;
     // If connection fails or query fails, database is not initialized
     return false;
   }
@@ -134,12 +152,19 @@ export async function autoSetupDatabase(): Promise<{ success: boolean; message?:
     // Run prisma db push to create the schema
     // This works in both local and Vercel environments
     // Note: In serverless environments, this runs on first request
+    // IMPORTANT: Normalize DATABASE_URL to absolute path to ensure Prisma uses the correct path
+    // Prisma resolves relative paths relative to prisma/ folder, so we use absolute paths
+    const normalizedDatabaseUrl = databaseUrl.startsWith('file:') 
+      ? normalizeDatabaseUrl(databaseUrl)
+      : databaseUrl;
+    
     try {
       // Use --skip-generate since we already generated the client in postinstall
+      // Pass normalized DATABASE_URL explicitly to ensure consistency
       execSync('npx prisma db push --accept-data-loss --skip-generate', {
         stdio: process.env.NODE_ENV === 'production' ? 'pipe' : 'inherit', // Suppress output in production
-        env: process.env,
-        cwd: process.cwd(),
+        env: { ...process.env, DATABASE_URL: normalizedDatabaseUrl },
+        cwd: process.cwd(), // Run from project root, not prisma folder
         timeout: 30000, // 30 second timeout
       });
       
