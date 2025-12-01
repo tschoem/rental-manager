@@ -2,6 +2,7 @@ import { PrismaClient } from '../generated/client/client';
 import { resolve, dirname } from 'path';
 import { existsSync, statSync } from 'fs';
 import { resolveDatabasePath } from './db-path';
+import { autoSetupDatabase } from './auto-setup';
 
 /**
  * Checks the setup status of the application
@@ -43,10 +44,29 @@ export async function getSetupStatus(): Promise<SetupStatus> {
     let adminUserExists = false;
 
     if (databaseUrl) {
-        // Validate DATABASE_URL format for SQLite
-        if (!databaseUrl.startsWith('file:')) {
-            dbInitMessage = `Invalid DATABASE_URL format. For SQLite, it should start with "file:". Current value: ${databaseUrl.substring(0, 20)}...`;
-        } else {
+        // Automatically set up database if DATABASE_URL is detected but database is not initialized
+        // This works for both local development and Vercel deployments
+        try {
+            const setupResult = await autoSetupDatabase();
+            if (setupResult.success && setupResult.message?.includes('created successfully')) {
+                // Database was just created, mark as initialized
+                databaseInitialized = true;
+            } else if (!setupResult.success && !setupResult.message?.includes('already initialized')) {
+                // Setup failed, but continue to check if database exists anyway
+                dbInitMessage = setupResult.message || 'Failed to auto-setup database';
+            }
+        } catch (error) {
+            // If auto-setup fails, continue with normal checks
+            // This allows the app to work even if auto-setup has issues
+            console.warn('Auto-setup warning:', error instanceof Error ? error.message : String(error));
+        }
+
+        // Check if database is initialized (for all database types)
+        // Only do detailed checks if auto-setup didn't succeed
+        if (!databaseInitialized) {
+            const isSQLite = databaseUrl.startsWith('file:');
+            
+            if (isSQLite) {
             // Extract and validate the file path using the same logic as Prisma
             let absolutePath: string;
             
@@ -101,7 +121,11 @@ export async function getSetupStatus(): Promise<SetupStatus> {
                                         adminUserExists = false;
                                     }
                                 } else {
-                                    dbInitMessage = 'Database file exists but has no tables. Run "npm run setup" to create the schema.';
+                                    // Database exists but has no tables - auto-setup should have handled this
+                                    // But if we're here, it means auto-setup didn't run or failed
+                                    if (!dbInitMessage) {
+                                        dbInitMessage = 'Database file exists but has no tables. The database will be automatically initialized on next request.';
+                                    }
                                 }
                             } catch (error: any) {
                                 // Extract error details
@@ -171,6 +195,68 @@ export async function getSetupStatus(): Promise<SetupStatus> {
             } catch (pathError: any) {
                 // Handle path resolution errors
                 dbInitMessage = `Error resolving database path: ${pathError?.message || String(pathError)}`;
+            }
+            } else {
+                // For PostgreSQL, MySQL, or other database types
+                // Try to connect and check if tables exist
+                const originalDbUrl = process.env.DATABASE_URL;
+                let testClient: PrismaClient | null = null;
+                try {
+                    testClient = new PrismaClient();
+                    await testClient.$connect();
+                    
+                    // Try to query for tables - use a simple query that should work
+                    // If User table exists, database is likely initialized
+                    try {
+                        await testClient.user.findFirst({ take: 1 });
+                        databaseInitialized = true;
+                        
+                        // Check if admin user exists
+                        try {
+                            const userCount = await testClient.user.count();
+                            adminUserExists = userCount > 0;
+                        } catch (userError) {
+                            adminUserExists = false;
+                        }
+                    } catch (tableError: any) {
+                        // If User table doesn't exist, database is not initialized
+                        if (tableError?.message?.includes('does not exist') || 
+                            tableError?.message?.includes('Unknown table') ||
+                            tableError?.code === 'P2021') {
+                            // Table doesn't exist - database not initialized
+                            if (!dbInitMessage) {
+                                dbInitMessage = 'Database connection successful but tables are missing. The database will be automatically initialized on next request.';
+                            }
+                        } else {
+                            // Other error - might be connection issue
+                            dbInitMessage = `Database connection error: ${tableError?.message || String(tableError)}`;
+                        }
+                    }
+                } catch (error: any) {
+                    // Connection failed
+                    const errorMsg = error?.message || String(error);
+                    if (error?.message?.includes('does not exist') || 
+                        error?.message?.includes('database') && error?.message?.includes('not found')) {
+                        dbInitMessage = `Database not found. Please create the database first, or check your DATABASE_URL.`;
+                    } else if (error?.message?.includes('authentication') || 
+                               error?.message?.includes('password') ||
+                               error?.message?.includes('Access denied')) {
+                        dbInitMessage = `Database authentication failed. Please check your DATABASE_URL credentials.`;
+                    } else {
+                        dbInitMessage = `Database connection failed: ${errorMsg.substring(0, 150)}`;
+                    }
+                } finally {
+                    if (testClient) {
+                        try {
+                            await testClient.$disconnect();
+                        } catch (disconnectError) {
+                            // Ignore disconnect errors
+                        }
+                    }
+                    if (originalDbUrl) {
+                        process.env.DATABASE_URL = originalDbUrl;
+                    }
+                }
             }
         }
     }
