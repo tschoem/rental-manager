@@ -23,11 +23,11 @@
     "open-source"
   ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "tsx scripts/update-schema-provider.ts && prisma generate && next dev",
+    "build": "tsx scripts/update-schema-provider.ts && prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate",
+    "postinstall": "tsx scripts/update-schema-provider.ts && prisma generate",
     "setup": "tsx scripts/setup.ts",
     "setup-admin": "tsx scripts/setup-admin.ts",
     "update-property-admin": "tsx scripts/update-property-admin.ts",

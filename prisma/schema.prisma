@@ -1,5 +1,11 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
+//
+// The database provider is automatically detected from DATABASE_URL:
+// - file:... or sqlite://... → sqlite
+// - postgresql://... or postgres://... → postgresql
+// - mysql://... → mysql
+// The provider is updated automatically before prisma generate runs
 
 generator client {
   provider = "prisma-client"
@@ -8,7 +14,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "sqlite"  // Auto-detected from DATABASE_URL (sqlite|postgresql|mysql)
   url      = env("DATABASE_URL")
 }
 

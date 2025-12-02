@@ -52,9 +52,9 @@ The following environment variables are required:
 
 #### Required
 - `DATABASE_URL`: Database connection string
-  - SQLite: `file:./dev.db` or `file:./prisma/dev.db`
-  - PostgreSQL: `postgresql://user:password@localhost:5432/dbname`
-  - MySQL: `mysql://user:password@localhost:3306/dbname`
+  - **Local Development**: SQLite - `file:./dev.db` or `file:./prisma/dev.db`
+  - **Production/Vercel**: PostgreSQL (required) - `postgresql://user:password@host:port/database?sslmode=require`
+  - **Note**: SQLite is not recommended for Vercel deployments due to ephemeral storage limitations
 - `NEXTAUTH_SECRET`: Secret key for NextAuth.js (generate with `openssl rand -base64 32`)
 - `NEXTAUTH_URL`: Your application URL (auto-detected in development)
 
@@ -203,8 +203,17 @@ Access the admin dashboard at `/admin` after logging in.
 
 3. **Configure Environment Variables**:
    - In Vercel project settings, add all environment variables from your `.env` file
-   - For production, use a PostgreSQL database (recommended)
-   - Update `DATABASE_URL` to your production database
+   - **IMPORTANT: Use PostgreSQL for Vercel deployments** (SQLite is not supported)
+     - SQLite on Vercel has limitations: data is ephemeral, stored in `/tmp`, and may be lost
+     - Recommended options:
+       - **Vercel Postgres**: Add via Vercel dashboard (easiest)
+       - **Supabase**: Free tier available, great for Next.js
+       - **Railway**: Simple PostgreSQL hosting
+       - **Neon**: Serverless PostgreSQL
+   - Update `DATABASE_URL` to your PostgreSQL connection string:
+     ```
+     postgresql://user:password@host:port/database?sslmode=require
+     ```
    - Set `NEXTAUTH_URL` to your production domain
 
 4. **Deploy**:

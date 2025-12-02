@@ -22,7 +22,7 @@ async function isDatabaseInitialized(): Promise<boolean> {
     try {
       const absolutePath = resolveDatabasePath(databaseUrl);
       const dbDir = dirname(absolutePath);
-      
+
       // Ensure the directory exists
       if (!existsSync(dbDir)) {
         mkdirSync(dbDir, { recursive: true });
@@ -35,10 +35,10 @@ async function isDatabaseInitialized(): Promise<boolean> {
 
   // Use normalized absolute path for Prisma Client to ensure consistency
   // This prevents path resolution issues between Prisma CLI and Prisma Client
-  const normalizedUrl = databaseUrl.startsWith('file:') 
+  const normalizedUrl = databaseUrl.startsWith('file:')
     ? normalizeDatabaseUrl(databaseUrl)
     : databaseUrl;
-  
+
   // Temporarily override DATABASE_URL with normalized path for this check
   const originalUrl = process.env.DATABASE_URL;
   process.env.DATABASE_URL = normalizedUrl;
@@ -46,10 +46,10 @@ async function isDatabaseInitialized(): Promise<boolean> {
   try {
     const prisma = new PrismaClient();
     await prisma.$connect();
-    
+
     // Check if database has tables by querying sqlite_master (SQLite) or information_schema (PostgreSQL/MySQL)
     let tables: Array<{ name: string }> = [];
-    
+
     if (databaseUrl.startsWith('file:')) {
       // SQLite
       tables = await prisma.$queryRaw<Array<{ name: string }>>`
@@ -86,7 +86,7 @@ async function isDatabaseInitialized(): Promise<boolean> {
         }
       }
     }
-    
+
     await prisma.$disconnect();
     // Restore original DATABASE_URL
     if (originalUrl) process.env.DATABASE_URL = originalUrl;
@@ -108,6 +108,16 @@ export async function autoSetupDatabase(): Promise<{ success: boolean; message?:
   const databaseUrl = process.env.DATABASE_URL?.trim();
   if (!databaseUrl) {
     return { success: false, message: 'DATABASE_URL is not set' };
+  }
+
+  // Don't auto-setup SQLite on Vercel - it's not recommended
+  const isSQLite = databaseUrl.startsWith('file:');
+  const isVercel = !!(process.env.VERCEL || process.env.VERCEL_URL);
+  if (isSQLite && isVercel) {
+    return {
+      success: false,
+      message: 'SQLite is not recommended on Vercel. Please use PostgreSQL instead. See setup page for details.'
+    };
   }
 
   // Prevent multiple simultaneous setup attempts
@@ -136,15 +146,17 @@ export async function autoSetupDatabase(): Promise<{ success: boolean; message?:
       try {
         const absolutePath = resolveDatabasePath(databaseUrl);
         const dbDir = dirname(absolutePath);
-        
+
+        // On serverless (Vercel), /tmp always exists, but we should still try to create it
+        // In case the directory structure is needed
         if (!existsSync(dbDir)) {
           mkdirSync(dbDir, { recursive: true });
         }
       } catch (error) {
         setupInProgress = false;
-        return { 
-          success: false, 
-          message: `Failed to create database directory: ${error instanceof Error ? error.message : String(error)}` 
+        return {
+          success: false,
+          message: `Failed to create database directory: ${error instanceof Error ? error.message : String(error)}`
         };
       }
     }
@@ -154,10 +166,10 @@ export async function autoSetupDatabase(): Promise<{ success: boolean; message?:
     // Note: In serverless environments, this runs on first request
     // IMPORTANT: Normalize DATABASE_URL to absolute path to ensure Prisma uses the correct path
     // Prisma resolves relative paths relative to prisma/ folder, so we use absolute paths
-    const normalizedDatabaseUrl = databaseUrl.startsWith('file:') 
+    const normalizedDatabaseUrl = databaseUrl.startsWith('file:')
       ? normalizeDatabaseUrl(databaseUrl)
       : databaseUrl;
-    
+
     try {
       // Use --skip-generate since we already generated the client in postinstall
       // Pass normalized DATABASE_URL explicitly to ensure consistency
@@ -167,23 +179,23 @@ export async function autoSetupDatabase(): Promise<{ success: boolean; message?:
         cwd: process.cwd(), // Run from project root, not prisma folder
         timeout: 30000, // 30 second timeout
       });
-      
+
       setupCompleted = true;
       setupInProgress = false;
       return { success: true, message: 'Database schema created successfully' };
     } catch (error: any) {
       setupInProgress = false;
       const errorMessage = error?.stderr?.toString() || error?.stdout?.toString() || error?.message || String(error);
-      return { 
-        success: false, 
-        message: `Failed to create database schema: ${errorMessage.substring(0, 200)}` 
+      return {
+        success: false,
+        message: `Failed to create database schema: ${errorMessage.substring(0, 200)}`
       };
     }
   } catch (error) {
     setupInProgress = false;
-    return { 
-      success: false, 
-      message: `Database setup error: ${error instanceof Error ? error.message : String(error)}` 
+    return {
+      success: false,
+      message: `Database setup error: ${error instanceof Error ? error.message : String(error)}`
     };
   }
 }
