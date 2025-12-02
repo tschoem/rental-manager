@@ -1,7 +1,6 @@
 import { PrismaClient } from '../generated/client/client';
-import { execSync } from 'child_process';
 import { existsSync, mkdirSync } from 'fs';
-import { dirname } from 'path';
+import { dirname, resolve } from 'path';
 import { resolveDatabasePath, normalizeDatabaseUrl } from './db-path';
 
 // Cache to prevent multiple simultaneous setup attempts
@@ -161,23 +160,39 @@ export async function autoSetupDatabase(): Promise<{ success: boolean; message?:
       }
     }
 
-    // Run prisma db push to create the schema
-    // This works in both local and Vercel environments
-    // Note: In serverless environments, this runs on first request
-    // IMPORTANT: Normalize DATABASE_URL to absolute path to ensure Prisma uses the correct path
-    // Prisma resolves relative paths relative to prisma/ folder, so we use absolute paths
+    // For PostgreSQL/MySQL, use Prisma's programmatic API to push schema
+    // This is more reliable than execSync in serverless environments
     const normalizedDatabaseUrl = databaseUrl.startsWith('file:')
       ? normalizeDatabaseUrl(databaseUrl)
       : databaseUrl;
 
     try {
-      // Use --skip-generate since we already generated the client in postinstall
-      // Pass normalized DATABASE_URL explicitly to ensure consistency
-      execSync('npx prisma db push --accept-data-loss --skip-generate', {
-        stdio: process.env.NODE_ENV === 'production' ? 'pipe' : 'inherit', // Suppress output in production
+      // Use Prisma binary directly from node_modules to avoid npx/npm issues
+      // This is more reliable in serverless environments like Vercel
+      const { execSync } = await import('child_process');
+      const schemaPath = resolve(process.cwd(), 'prisma/schema.prisma');
+      
+      // Try to find prisma CLI in node_modules
+      const prismaBinPath = resolve(process.cwd(), 'node_modules/.bin/prisma');
+      const prismaCliPath = resolve(process.cwd(), 'node_modules/prisma/build/index.js');
+      
+      let command: string;
+      if (existsSync(prismaBinPath)) {
+        // Use the .bin/prisma script
+        command = `"${prismaBinPath}" db push --accept-data-loss --skip-generate --schema="${schemaPath}"`;
+      } else if (existsSync(prismaCliPath)) {
+        // Use prisma CLI directly
+        command = `node "${prismaCliPath.replace('/build/index.js', '/cli.js')}" db push --accept-data-loss --skip-generate --schema="${schemaPath}"`;
+      } else {
+        // Fallback to npx (may fail on Vercel)
+        command = `npx prisma db push --accept-data-loss --skip-generate --schema="${schemaPath}"`;
+      }
+      
+      execSync(command, {
+        stdio: process.env.NODE_ENV === 'production' ? 'pipe' : 'inherit',
         env: { ...process.env, DATABASE_URL: normalizedDatabaseUrl },
-        cwd: process.cwd(), // Run from project root, not prisma folder
-        timeout: 30000, // 30 second timeout
+        cwd: process.cwd(),
+        timeout: 30000,
       });
 
       setupCompleted = true;
@@ -188,7 +203,7 @@ export async function autoSetupDatabase(): Promise<{ success: boolean; message?:
       const errorMessage = error?.stderr?.toString() || error?.stdout?.toString() || error?.message || String(error);
       return {
         success: false,
-        message: `Failed to create database schema: ${errorMessage.substring(0, 200)}`
+        message: `Failed to create database schema: ${errorMessage.substring(0, 300)}`
       };
     }
   } catch (error) {
