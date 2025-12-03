@@ -71,19 +71,19 @@ export default function ImportForm({ propertyId, propertyName }: ImportFormProps
     // Poll for real progress updates
     const progressPollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`/api/import-progress?propertyId=${propertyId}`);
+        const response = await fetch(`/api/import-progress?propertyId=${propertyId}&t=${Date.now()}`);
         if (response.ok) {
           const data = await response.json();
-          if (data.stage !== 'idle') {
+          console.log('[UI] Progress update:', data); // Debug log
+          if (data.stage && data.stage !== 'idle') {
             setProgress({
               stage: data.stage as ProgressStage,
-              message: data.message,
-              progress: data.progress
+              message: data.message || 'Processing...',
+              progress: data.progress || 0
             });
 
-            // If there are logs, we could display them too
-            if (data.logs && data.logs.length > 0) {
-              // Update logs state
+            // If there are logs, display them
+            if (data.logs && Array.isArray(data.logs) && data.logs.length > 0) {
               setLogs(data.logs);
             }
 
@@ -93,16 +93,20 @@ export default function ImportForm({ propertyId, propertyName }: ImportFormProps
               if (data.error) {
                 setError(data.error);
                 setProgress({ stage: 'error', message: data.error, progress: 0 });
+                setLoading(false);
               } else {
                 setProgress({ stage: 'complete', message: 'Import completed successfully!', progress: 100 });
+                setLoading(false);
               }
             }
           }
+        } else {
+          console.error('[UI] Progress API error:', response.status, response.statusText);
         }
       } catch (err) {
-        console.error('Failed to fetch progress:', err);
+        console.error('[UI] Failed to fetch progress:', err);
       }
-    }, 1000); // Poll every second
+    }, 500); // Poll every 500ms for more responsive updates
 
     // Store interval ref for cleanup
     progressIntervalRef.current = progressPollInterval as any;

@@ -119,7 +119,12 @@ export async function importListing(formData: FormData) {
 
     // Main import logic
     try {
-      await updateImportProgress(propertyId, 'initializing', 'Starting browser and loading page...', 5, '[IMPORT] Starting import');
+      // Write initial progress - make sure this completes
+      try {
+        await updateImportProgress(propertyId, 'initializing', 'Starting browser and loading page...', 5, '[IMPORT] Starting import');
+      } catch (progressError) {
+        console.error('[IMPORT] Failed to write initial progress (non-critical):', progressError);
+      }
 
       console.log(`[IMPORT] Starting import for property ${propertyId}`);
       console.log(`[IMPORT] URL: ${url}`);
@@ -133,8 +138,11 @@ export async function importListing(formData: FormData) {
 
       await updateImportProgress(propertyId, 'scraping', 'Extracting title, description, price, and capacity...', 20, '[IMPORT] Starting scrape...');
       console.log(`[IMPORT] Starting scrape...`);
-      const listingData = await scrapeAirbnbListing(url, galleryUrl || undefined, (stage, message, progress, log) => {
-        updateImportProgress(propertyId, stage, message, progress, log);
+      const listingData = await scrapeAirbnbListing(url, galleryUrl || undefined, async (stage, message, progress, log) => {
+        // Fire and forget - don't block on progress updates
+        updateImportProgress(propertyId, stage, message, progress, log).catch(err => {
+          console.error('[PROGRESS] Failed to update progress (non-critical):', err);
+        });
       });
 
       await updateImportProgress(propertyId, 'scraping', 'Scrape completed', 40, `[IMPORT] Scrape completed: ${listingData.images.length} images, ${listingData.amenities.length} amenities`);

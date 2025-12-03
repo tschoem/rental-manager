@@ -12,21 +12,31 @@ export async function GET(request: NextRequest) {
   const progress = await getImportProgress(propertyId);
 
   if (!progress) {
-    return NextResponse.json({ 
+    return NextResponse.json({
       stage: 'idle',
       message: 'No active import',
       progress: 0,
-      logs: []
+      logs: [],
+      completed: false,
+      error: null
     });
   }
 
+  let logs = [];
+  try {
+    logs = progress.logs ? JSON.parse(progress.logs) : [];
+  } catch (e) {
+    console.error('[PROGRESS API] Failed to parse logs:', e);
+    logs = [];
+  }
+
   return NextResponse.json({
-    stage: progress.stage,
-    message: progress.message,
-    progress: progress.progress,
-    logs: progress.logs ? JSON.parse(progress.logs) : [],
-    error: progress.error,
-    completed: progress.completed,
+    stage: progress.stage || 'idle',
+    message: progress.message || 'Processing...',
+    progress: progress.progress || 0,
+    logs: logs,
+    error: progress.error || null,
+    completed: progress.completed || false,
   });
 }
 

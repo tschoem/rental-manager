@@ -16,7 +16,7 @@ export interface AirbnbListingData {
 }
 
 // Progress callback type
-export type ProgressCallback = (stage: string, message: string, progress: number, log?: string) => void;
+export type ProgressCallback = (stage: string, message: string, progress: number, log?: string) => void | Promise<void>;
 
 // Detect if we're running on Vercel or similar serverless environment
 const isVercel = !!(process.env.VERCEL || process.env.VERCEL_URL || process.env.AWS_LAMBDA_FUNCTION_NAME);
@@ -333,20 +333,60 @@ export async function scrapeAirbnbListing(
     try {
       console.log('Looking for "Show more" button...');
 
-      // Find and click "Show more" button using evaluate
-      const clicked = await page.evaluate(() => {
-        const buttons = Array.from(document.querySelectorAll('button'));
-        const showMoreButton = buttons.find(btn =>
-          btn.textContent?.includes('Show more') ||
-          btn.textContent?.includes('Read more')
-        );
+      // Wait for page to be fully ready
+      try {
+        await page.waitForFunction(() => document.readyState === 'complete', { timeout: 10000 });
+      } catch (e) {
+        console.log('Page ready state check timed out, continuing...');
+      }
 
-        if (showMoreButton) {
-          showMoreButton.click();
-          return true;
+      // Find and click "Show more" button using evaluate
+      // Wrap in try-catch to handle frame errors
+      let clicked = false;
+      try {
+        clicked = await page.evaluate(() => {
+          try {
+            const buttons = Array.from(document.querySelectorAll('button'));
+            const showMoreButton = buttons.find(btn =>
+              btn.textContent?.includes('Show more') ||
+              btn.textContent?.includes('Read more')
+            );
+
+            if (showMoreButton) {
+              showMoreButton.click();
+              return true;
+            }
+            return false;
+          } catch (e) {
+            console.error('Error in evaluate:', e);
+            return false;
+          }
+        });
+      } catch (frameError: any) {
+        // Handle "Requesting main frame too early" and similar errors
+        if (frameError?.message?.includes('main frame') || frameError?.message?.includes('frame')) {
+          console.log('Frame not ready, waiting and retrying...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          try {
+            clicked = await page.evaluate(() => {
+              const buttons = Array.from(document.querySelectorAll('button'));
+              const showMoreButton = buttons.find(btn =>
+                btn.textContent?.includes('Show more') ||
+                btn.textContent?.includes('Read more')
+              );
+              if (showMoreButton) {
+                showMoreButton.click();
+                return true;
+              }
+              return false;
+            });
+          } catch (retryError) {
+            console.log('Retry also failed, skipping "Show more" button');
+          }
+        } else {
+          throw frameError;
         }
-        return false;
-      });
+      }
 
       if (clicked) {
         console.log('Clicked "Show more" button');
@@ -354,89 +394,115 @@ export async function scrapeAirbnbListing(
       }
 
       // Extract full description from the modal or expanded section
-      description = await page.evaluate(() => {
-        // First, try to find the description in a more targeted way
-        // Look for the actual description paragraphs, not the whole container
+      // Wrap in try-catch to handle frame errors
+      try {
+        description = await page.evaluate(() => {
+          // First, try to find the description in a more targeted way
+          // Look for the actual description paragraphs, not the whole container
 
-        // Strategy 1: Look for specific description divs/sections
-        const descriptionSelectors = [
-          'div[data-section-id*="description"]',
-          'div[data-testid*="description"]',
-          'section[data-section-id*="description"]',
-        ];
+          // Strategy 1: Look for specific description divs/sections
+          const descriptionSelectors = [
+            'div[data-section-id*="description"]',
+            'div[data-testid*="description"]',
+            'section[data-section-id*="description"]',
+          ];
 
-        for (const selector of descriptionSelectors) {
-          const elem = document.querySelector(selector);
-          if (elem) {
-            // Get only direct text nodes and paragraph text
-            const paragraphs: string[] = [];
-            const pElements = elem.querySelectorAll('p, div > span');
-            pElements.forEach(p => {
-              const text = p.textContent?.trim() || '';
-              if (text.length > 20 && !text.includes('{') && !text.includes('[')) {
-                paragraphs.push(text);
-              }
-            });
-
-            if (paragraphs.length > 0) {
-              return paragraphs.join('\n\n');
-            }
-          }
-        }
-
-        // Strategy 2: Look for "About this space" heading and get following paragraphs
-        const allElements = Array.from(document.querySelectorAll('h2, h3, div, span'));
-        for (let i = 0; i < allElements.length; i++) {
-          const elem = allElements[i];
-          const text = elem.textContent || '';
-
-          if (text.trim() === 'About this space' || text.trim() === 'About this place') {
-            // Found the heading, now collect following paragraph elements
-            const paragraphs: string[] = [];
-            let current = elem.nextElementSibling;
-            let count = 0;
-
-            while (current && count < 10) {
-              // Look for paragraph-like elements
-              const pTags = current.querySelectorAll('span, div');
-              pTags.forEach(p => {
-                const pText = p.textContent?.trim() || '';
-                // Filter out JSON, short text, and navigation elements
-                if (pText.length > 30 &&
-                  pText.length < 2000 &&
-                  !pText.includes('{') &&
-                  !pText.includes('[') &&
-                  !pText.includes('http') &&
-                  !pText.includes('Show more') &&
-                  !paragraphs.includes(pText)) {
-                  paragraphs.push(pText);
+          for (const selector of descriptionSelectors) {
+            const elem = document.querySelector(selector);
+            if (elem) {
+              // Get only direct text nodes and paragraph text
+              const paragraphs: string[] = [];
+              const pElements = elem.querySelectorAll('p, div > span');
+              pElements.forEach(p => {
+                const text = p.textContent?.trim() || '';
+                if (text.length > 20 && !text.includes('{') && !text.includes('[')) {
+                  paragraphs.push(text);
                 }
               });
 
               if (paragraphs.length > 0) {
-                break;
+                return paragraphs.join('\n\n');
               }
-
-              current = current.nextElementSibling;
-              count++;
-            }
-
-            if (paragraphs.length > 0) {
-              return paragraphs.slice(0, 5).join('\n\n'); // Limit to first 5 paragraphs
             }
           }
-        }
 
-        // Fallback to meta description
-        const metaDesc = document.querySelector('meta[property="og:description"]');
-        return metaDesc?.getAttribute('content') || 'Imported from Airbnb';
-      });
+          // Strategy 2: Look for "About this space" heading and get following paragraphs
+          const allElements = Array.from(document.querySelectorAll('h2, h3, div, span'));
+          for (let i = 0; i < allElements.length; i++) {
+            const elem = allElements[i];
+            const text = elem.textContent || '';
+
+            if (text.trim() === 'About this space' || text.trim() === 'About this place') {
+              // Found the heading, now collect following paragraph elements
+              const paragraphs: string[] = [];
+              let current = elem.nextElementSibling;
+              let count = 0;
+
+              while (current && count < 10) {
+                // Look for paragraph-like elements
+                const pTags = current.querySelectorAll('span, div');
+                pTags.forEach(p => {
+                  const pText = p.textContent?.trim() || '';
+                  // Filter out JSON, short text, and navigation elements
+                  if (pText.length > 30 &&
+                    pText.length < 2000 &&
+                    !pText.includes('{') &&
+                    !pText.includes('[') &&
+                    !pText.includes('http') &&
+                    !pText.includes('Show more') &&
+                    !paragraphs.includes(pText)) {
+                    paragraphs.push(pText);
+                  }
+                });
+
+                if (paragraphs.length > 0) {
+                  break;
+                }
+
+                current = current.nextElementSibling;
+                count++;
+              }
+
+              if (paragraphs.length > 0) {
+                return paragraphs.slice(0, 5).join('\n\n'); // Limit to first 5 paragraphs
+              }
+            }
+          }
+
+          // Fallback to meta description
+          const metaDesc = document.querySelector('meta[property="og:description"]');
+          return metaDesc?.getAttribute('content') || 'Imported from Airbnb';
+        });
+      } catch (evalError: any) {
+        // Handle frame errors during description extraction
+        if (evalError?.message?.includes('main frame') || evalError?.message?.includes('frame')) {
+          console.log('Frame error during description extraction, using fallback...');
+          try {
+            // Wait a bit and try again
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            description = await page.evaluate(() => {
+              const metaDesc = document.querySelector('meta[property="og:description"]');
+              return metaDesc?.getAttribute('content') || 'Imported from Airbnb';
+            });
+          } catch (retryError) {
+            console.log('Retry failed, using simple fallback');
+            description = 'Imported from Airbnb';
+          }
+        } else {
+          throw evalError;
+        }
+      }
     } catch (error) {
       console.log('Could not expand description:', error);
-      description = await page.evaluate(() => {
-        const metaDesc = document.querySelector('meta[property="og:description"]');
-        return metaDesc?.getAttribute('content') || 'Imported from Airbnb';
-      });
+      try {
+        description = await page.evaluate(() => {
+          const metaDesc = document.querySelector('meta[property="og:description"]');
+          return metaDesc?.getAttribute('content') || 'Imported from Airbnb';
+        });
+      } catch (fallbackError) {
+        console.log('Fallback description extraction also failed');
+        description = 'Imported from Airbnb';
+      }
     }
 
     console.log('Description length:', description.length);
