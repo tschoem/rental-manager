@@ -277,7 +277,8 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
     await page.setRequestInterception(true);
     page.on('request', (req: any) => {
       const resourceType = req.resourceType();
-      if (['image', 'stylesheet', 'font', 'media', 'other'].includes(resourceType)) {
+      // Don't block 'other' as it may contain critical scripts/data
+      if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
         req.abort();
       } else {
         req.continue();
@@ -293,10 +294,16 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
     // Capture browser console logs
     page.on('console', (msg: any) => console.log('PAGE LOG:', msg.text()));
 
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+    // Use domcontentloaded for faster navigation and to avoid networkidle timeouts/issues
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-    // Wait for page to load
-    await page.waitForSelector('body', { timeout: 10000 });
+    console.log('Page loaded (domcontentloaded)');
+
+    // Wait for body to be present
+    await page.waitForSelector('body', { timeout: 30000 });
+    console.log('Body selector found');
+
+    // Small delay to allow basic hydration
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     // Extract title
