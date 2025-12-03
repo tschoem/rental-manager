@@ -36,7 +36,7 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
 
       try {
         // Use cached path if available, otherwise download and extract from tar
-        let executablePath = cachedExecutablePath;
+        let executablePath: string | undefined = cachedExecutablePath;
 
         if (!executablePath) {
           // Get the base URL for the deployment
@@ -123,28 +123,65 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
           const brotli = await import('brotli');
           const files = readdirSync(binPath);
 
+          console.log(`Files in bin directory: ${files.join(', ')}`);
+
           // Look for the chromium executable (usually chromium.br which needs decompression)
+          // Ignore tar files, swiftshader, and other non-executable files
           let chromiumBrFile: string | undefined;
           let chromiumExecutable: string | undefined;
 
+          // Look specifically for chromium.br (the actual Chromium executable)
+          // Ignore all .tar files and other non-executable files
           for (const file of files) {
             const filePath = join(binPath, file);
             const stats = statSync(filePath);
+
+            // Skip directories, tar files (including .tar.br), swiftshader, fonts, al2023, and library files
+            if (stats.isDirectory() ||
+              file.endsWith('.tar') ||
+              file.includes('swiftshader') ||
+              file.includes('fonts') ||
+              file.includes('al2023') ||
+              file.includes('lib') ||
+              file.includes('so')) {
+              continue;
+            }
+
             if (stats.isFile()) {
-              if (file.endsWith('.br')) {
-                // Found Brotli-compressed file
+              // Look EXACTLY for chromium.br (not chromium-something.br, not chrome.br)
+              if (file === 'chromium.br') {
                 chromiumBrFile = file;
-                chromiumExecutable = file.replace('.br', ''); // Remove .br extension
-              } else if ((file.includes('chrome') || file.includes('chromium')) && !file.endsWith('.br')) {
-                // Found uncompressed executable
+                chromiumExecutable = 'chromium'; // Remove .br extension
+                console.log(`Found Chromium executable: ${chromiumBrFile} -> ${chromiumExecutable}`);
+                break; // Found exact match, stop looking
+              }
+              // Look for uncompressed chromium executable
+              else if (file === 'chromium' && !file.endsWith('.br') && !file.endsWith('.tar')) {
                 chromiumExecutable = file;
+                console.log(`Found uncompressed Chromium executable: ${chromiumExecutable}`);
                 break;
               }
             }
           }
 
-          if (!chromiumExecutable) {
-            throw new Error(`Chromium executable not found in extracted bin directory: ${binPath}. Files: ${files.join(', ')}`);
+          // Verify we found chromium.br (exact match only, no fallbacks)
+          if (!chromiumExecutable && !chromiumBrFile) {
+            throw new Error(`chromium.br not found in extracted bin directory: ${binPath}. Available files: ${files.join(', ')}. Make sure chromium-pack.tar contains chromium.br`);
+          }
+
+          // Ensure we have chromium.br, not some other file
+          if (chromiumBrFile && chromiumBrFile !== 'chromium.br') {
+            throw new Error(`Found wrong file: ${chromiumBrFile}. Expected chromium.br. Available files: ${files.join(', ')}`);
+          }
+
+          // If we have chromiumBrFile but not chromiumExecutable, set it
+          if (chromiumBrFile && !chromiumExecutable) {
+            chromiumExecutable = 'chromium';
+          }
+
+          // Final check that we have a valid executable name
+          if (!chromiumExecutable || chromiumExecutable !== 'chromium') {
+            throw new Error(`Invalid executable name: ${chromiumExecutable || 'undefined'}. Expected chromium. Available files: ${files.join(', ')}`);
           }
 
           const executablePath = join(binPath, chromiumExecutable);
@@ -174,6 +211,12 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
             } else {
               console.log(`Chromium executable already decompressed: ${executablePath}`);
             }
+          }
+
+          // Verify the file exists and is a file (not a directory)
+          const finalStats = statSync(executablePath);
+          if (!finalStats.isFile()) {
+            throw new Error(`Chromium executable path exists but is not a file: ${executablePath}`);
           }
 
           // Make the executable file executable
