@@ -298,8 +298,20 @@ export async function importListing(formData: FormData) {
 
     // Only redirect if we got here successfully
     revalidatePath(`/admin/properties/${propertyId}`);
+
+    // Next.js redirect() throws a special error - we need to let it propagate
+    // Don't catch it as an error
     redirect(`/admin/properties/${propertyId}`);
   } catch (outerError) {
+    // Check if this is a Next.js redirect (expected behavior, not an error)
+    if (outerError && typeof outerError === 'object' && 'digest' in outerError) {
+      const digest = (outerError as any).digest;
+      if (digest && typeof digest === 'string' && digest.includes('NEXT_REDIRECT')) {
+        // This is a redirect, not an error - rethrow it so Next.js handles it
+        throw outerError;
+      }
+    }
+
     // Catch any errors that occur outside the main try block (e.g., during formData parsing, auth checks)
     const errorMessage = outerError instanceof Error ? outerError.message : String(outerError);
     const errorStack = outerError instanceof Error ? outerError.stack : undefined;

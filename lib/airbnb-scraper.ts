@@ -441,21 +441,37 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
       try {
         console.log('Scraping images from provided gallery URL:', galleryUrl);
         const galleryPage = await browser.newPage();
+
+        // Apply same memory optimizations to gallery page
+        if (shouldOptimize) {
+          await galleryPage.setRequestInterception(true);
+          galleryPage.on('request', (req: any) => {
+            const resourceType = req.resourceType();
+            if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
+              req.abort();
+            } else {
+              req.continue();
+            }
+          });
+        }
+
         await galleryPage.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         await galleryPage.setViewport({ width: 1920, height: 1080 });
 
-        await galleryPage.goto(galleryUrl, { waitUntil: 'networkidle2', timeout: 60000 });
-        await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for gallery to load
+        // Use domcontentloaded for faster loading
+        await galleryPage.goto(galleryUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for gallery to load
 
         // Helper function to extract images from page
         const extractImagesFromPage = async (): Promise<string[]> => {
           return await galleryPage.evaluate(() => {
+            // @ts-nocheck
             const imgs: string[] = [];
             const uniqueUrls = new Set<string>();
 
             // Helper function to extract image URL
-            const extractImageUrl = (element: Element): string | null => {
-              let src = (element as HTMLImageElement).src || element.getAttribute('src');
+            function extractImageUrl(element: any) {
+              let src = element.src || element.getAttribute('src');
               if (src && src.length > 50 && !src.includes('icon') && !src.includes('logo') && !src.includes('avatar')) {
                 return src.split('?')[0];
               }
@@ -465,7 +481,7 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
                 return src.split('?')[0];
               }
 
-              const style = (element as HTMLElement).style?.backgroundImage;
+              const style = element.style ? element.style.backgroundImage : '';
               if (style) {
                 const match = style.match(/url\(["']?([^"')]+)["']?\)/);
                 if (match && match[1] && match[1].length > 50) {
@@ -474,7 +490,7 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
               }
 
               return null;
-            };
+            }
 
             // Extract all visible images
             const allImageElements = Array.from(document.querySelectorAll('img, picture, [style*="background-image"]'));
