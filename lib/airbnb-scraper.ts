@@ -30,16 +30,23 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
       console.log('Using @sparticuz/chromium for serverless environment');
 
       try {
+        // Get the Chromium executable path
+        // On Vercel, chromium.executablePath() will download/extract the binary if needed
+        const executablePath = await chromium.executablePath();
+
+        console.log(`Chromium executable path: ${executablePath}`);
+
         browser = await puppeteerCore.launch({
           args: chromium.args,
           defaultViewport: { width: 1920, height: 1080 },
-          executablePath: await chromium.executablePath(),
+          executablePath,
           headless: true,
         });
         console.log('Chromium browser launched successfully');
       } catch (chromiumError) {
         console.error('Failed to launch Chromium:', chromiumError);
-        throw new Error(`Failed to launch browser on Vercel: ${chromiumError instanceof Error ? chromiumError.message : String(chromiumError)}. Make sure @sparticuz/chromium is installed.`);
+        console.error('Chromium error details:', JSON.stringify(chromiumError, Object.getOwnPropertyNames(chromiumError)));
+        throw new Error(`Failed to launch browser on Vercel: ${chromiumError instanceof Error ? chromiumError.message : String(chromiumError)}. The Chromium binary may not be included in the deployment. Check Vercel function size limits.`);
       }
     } else {
       // Use regular Puppeteer for local development
