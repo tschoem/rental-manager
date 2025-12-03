@@ -19,7 +19,7 @@ export interface AirbnbListingData {
 const isVercel = !!(process.env.VERCEL || process.env.VERCEL_URL || process.env.AWS_LAMBDA_FUNCTION_NAME);
 
 // Cache for Chromium executable path (to avoid re-downloading)
-let cachedExecutablePath: string | null = null;
+let cachedExecutablePath: string | undefined = undefined;
 
 export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Promise<AirbnbListingData> {
   let browser;
@@ -118,29 +118,70 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
           // Actually, chromium-min looks for bin in node_modules, so we might need to symlink
           // Or we can directly use the executable from the extracted location
 
-          // Find the chromium executable in the extracted bin directory
-          const { readdirSync, statSync } = await import('fs');
+          // Find and decompress the chromium executable
+          const { readdirSync, statSync, chmodSync, readFileSync, writeFileSync: fsWriteFileSync } = await import('fs');
+          const brotli = await import('brotli');
           const files = readdirSync(binPath);
 
-          // Look for the chromium executable (usually chrome or chromium)
+          // Look for the chromium executable (usually chromium.br which needs decompression)
+          let chromiumBrFile: string | undefined;
           let chromiumExecutable: string | undefined;
+
           for (const file of files) {
             const filePath = join(binPath, file);
             const stats = statSync(filePath);
-            // Check if it's an executable file (not a directory)
-            if (stats.isFile() && (file.includes('chrome') || file.includes('chromium'))) {
-              chromiumExecutable = file;
-              break;
+            if (stats.isFile()) {
+              if (file.endsWith('.br')) {
+                // Found Brotli-compressed file
+                chromiumBrFile = file;
+                chromiumExecutable = file.replace('.br', ''); // Remove .br extension
+              } else if ((file.includes('chrome') || file.includes('chromium')) && !file.endsWith('.br')) {
+                // Found uncompressed executable
+                chromiumExecutable = file;
+                break;
+              }
             }
           }
 
           if (!chromiumExecutable) {
-            throw new Error(`Chromium executable not found in extracted bin directory: ${binPath}`);
+            throw new Error(`Chromium executable not found in extracted bin directory: ${binPath}. Files: ${files.join(', ')}`);
           }
 
-          executablePath = join(binPath, chromiumExecutable);
+          const executablePath = join(binPath, chromiumExecutable);
+
+          // If we found a .br file, decompress it
+          if (chromiumBrFile) {
+            // Check if already decompressed
+            const exists = (() => {
+              try {
+                return statSync(executablePath).isFile();
+              } catch {
+                return false;
+              }
+            })();
+
+            if (!exists) {
+              console.log(`Decompressing ${chromiumBrFile}...`);
+              const brFilePath = join(binPath, chromiumBrFile);
+              const compressedData = readFileSync(brFilePath);
+              // Use brotli.decompress (the package exports decompress function)
+              const decompressedData = (brotli as any).decompress(compressedData);
+              if (!decompressedData) {
+                throw new Error('Failed to decompress chromium.br file');
+              }
+              fsWriteFileSync(executablePath, Buffer.from(decompressedData));
+              console.log(`Decompressed to: ${executablePath}`);
+            } else {
+              console.log(`Chromium executable already decompressed: ${executablePath}`);
+            }
+          }
+
+          // Make the executable file executable
+          chmodSync(executablePath, 0o755); // rwxr-xr-x
+          console.log(`Made executable: ${executablePath}`);
+
           cachedExecutablePath = executablePath;
-          console.log(`Chromium executable found: ${executablePath}`);
+          console.log(`Chromium executable ready: ${executablePath}`);
         } else {
           console.log(`Using cached Chromium executable path: ${executablePath}`);
         }
