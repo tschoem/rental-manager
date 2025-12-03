@@ -1090,211 +1090,235 @@ export async function scrapeAirbnbListing(
     // Extract amenities from the dedicated /amenities page
     // Clear amenities array before starting (in case of retry)
     amenities.length = 0;
+
+    // Use Promise.race to add a timeout to amenities extraction (30 seconds max)
     try {
-      progressCallback?.('extracting-amenities', 'Extracting amenities...', 80, 'Extracting amenities from /amenities page...');
-      console.log('Extracting amenities from /amenities page...');
+      await Promise.race([
+        (async () => {
+          try {
+            progressCallback?.('extracting-amenities', 'Extracting amenities...', 80, 'Extracting amenities from /amenities page...');
+            console.log('Extracting amenities from /amenities page...');
 
-      // Navigate to the amenities page (reuse existing page to save memory)
-      const amenitiesUrl = url.endsWith('/') ? `${url}amenities` : `${url}/amenities`;
-      console.log('Navigating to:', amenitiesUrl);
+            // Navigate to the amenities page (reuse existing page to save memory)
+            const amenitiesUrl = url.endsWith('/') ? `${url}amenities` : `${url}/amenities`;
+            console.log('Navigating to:', amenitiesUrl);
 
-      // Check if page is still valid before navigating
-      try {
-        // Navigate current page to amenities URL
-        await page.goto(amenitiesUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-        await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for page to load
-      } catch (navError: any) {
-        // If navigation fails (page detached, etc.), skip amenities extraction
-        if (navError?.message?.includes('detached') || navError?.message?.includes('frame')) {
-          console.log('Page detached during navigation, skipping amenities extraction');
-          throw navError; // Re-throw to trigger fallback
-        }
-        throw navError;
-      }
+            // Check if page is still valid before navigating
+            try {
+              // Navigate current page to amenities URL with shorter timeout
+              await page.goto(amenitiesUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+              await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for page to load
+            } catch (navError: any) {
+              // If navigation fails (page detached, etc.), skip amenities extraction
+              if (navError?.message?.includes('detached') || navError?.message?.includes('frame')) {
+                console.log('Page detached during navigation, skipping amenities extraction');
+                throw navError; // Re-throw to trigger fallback
+              }
+              throw navError;
+            }
 
-      // Extract amenities from the amenities page
-      const allAmenities = await page.evaluate(() => {
-        const amenitiesList: string[] = [];
-        const seen = new Set<string>();
+            // Extract amenities from the amenities page
+            const allAmenities = await page.evaluate(() => {
+              const amenitiesList: string[] = [];
+              const seen = new Set<string>();
 
-        // Find the dialog with "What this place offers"
-        const dialog = document.querySelector('[role="dialog"][aria-label*="What this place offers"], [role="dialog"][aria-label*="amenities"]');
+              // Find the dialog with "What this place offers"
+              const dialog = document.querySelector('[role="dialog"][aria-label*="What this place offers"], [role="dialog"][aria-label*="amenities"]');
 
-        if (!dialog) {
-          console.log('Dialog not found, trying alternative selectors...');
-          // Fallback: try to find any dialog
-          const anyDialog = document.querySelector('[role="dialog"]');
-          if (anyDialog) {
-            console.log('Found dialog without specific aria-label');
-            // Use this dialog
-            const lists = anyDialog.querySelectorAll('ul[role="list"]');
-            lists.forEach(list => {
-              const items = list.querySelectorAll('li');
-              items.forEach(item => {
-                // Find the amenity name - it's in a div with class containing "row-title" or "twad414"
-                const nameElement = item.querySelector('div[id*="row-title"], div.twad414, div[class*="row-title"]');
-                if (nameElement) {
-                  let text = nameElement.textContent?.trim() || '';
-                  // Skip if it's "Unavailable:" or starts with unavailable
-                  if (text.toLowerCase().startsWith('unavailable:')) {
-                    return;
-                  }
-                  // Clean up
-                  text = text.replace(/^Unavailable:\s*/i, '').trim();
-                  text = text.split('\n')[0].split('–')[0].split('—')[0].trim();
-                  text = text.replace(/\s+/g, ' ');
+              if (!dialog) {
+                console.log('Dialog not found, trying alternative selectors...');
+                // Fallback: try to find any dialog
+                const anyDialog = document.querySelector('[role="dialog"]');
+                if (anyDialog) {
+                  console.log('Found dialog without specific aria-label');
+                  // Use this dialog
+                  const lists = anyDialog.querySelectorAll('ul[role="list"]');
+                  lists.forEach(list => {
+                    const items = list.querySelectorAll('li');
+                    items.forEach(item => {
+                      // Find the amenity name - it's in a div with class containing "row-title" or "twad414"
+                      const nameElement = item.querySelector('div[id*="row-title"], div.twad414, div[class*="row-title"]');
+                      if (nameElement) {
+                        let text = nameElement.textContent?.trim() || '';
+                        // Skip if it's "Unavailable:" or starts with unavailable
+                        if (text.toLowerCase().startsWith('unavailable:')) {
+                          return;
+                        }
+                        // Clean up
+                        text = text.replace(/^Unavailable:\s*/i, '').trim();
+                        text = text.split('\n')[0].split('–')[0].split('—')[0].trim();
+                        text = text.replace(/\s+/g, ' ');
 
-                  const textLower = text.toLowerCase();
-                  if (text &&
-                    text.length > 2 &&
-                    text.length < 150 &&
-                    !seen.has(textLower) &&
-                    !textLower.match(/^(share|save|close|show|hide|more|less|×|back|what this place offers|amenities)$/i) &&
-                    /[a-zA-Z]/.test(text)) {
-                    seen.add(textLower);
-                    amenitiesList.push(text);
-                  }
-                }
-              });
-            });
-          }
-        } else {
-          console.log('Found amenities dialog');
-
-          // Find all ul[role="list"] elements inside the dialog
-          const lists = dialog.querySelectorAll('ul[role="list"]');
-          console.log(`Found ${lists.length} amenity lists`);
-
-          lists.forEach((list, listIndex) => {
-            const items = list.querySelectorAll('li');
-            console.log(`List ${listIndex + 1} has ${items.length} items`);
-
-            items.forEach((item, itemIndex) => {
-              // Find the amenity name element
-              // It's typically in a div with id containing "row-title" or class "twad414"
-              const nameElement = item.querySelector('div[id*="row-title"], div.twad414, div[class*="row-title"]');
-
-              if (nameElement) {
-                let text = nameElement.textContent?.trim() || '';
-
-                // Skip "Unavailable:" items
-                if (text.toLowerCase().startsWith('unavailable:')) {
-                  return;
-                }
-
-                // Remove "Unavailable:" prefix if present
-                text = text.replace(/^Unavailable:\s*/i, '').trim();
-
-                // Clean up - get just the amenity name, not descriptions
-                text = text.split('\n')[0].split('–')[0].split('—')[0].trim();
-                text = text.replace(/\s+/g, ' ');
-
-                const textLower = text.toLowerCase();
-
-                // Filter for valid amenities
-                if (text &&
-                  text.length > 2 &&
-                  text.length < 150 &&
-                  !seen.has(textLower) &&
-                  !textLower.match(/^(share|save|close|show|hide|more|less|×|back|what this place offers|amenities|not included)$/i) &&
-                  !textLower.includes('unavailable') &&
-                  /[a-zA-Z]/.test(text)) {
-
-                  seen.add(textLower);
-                  amenitiesList.push(text);
-                  console.log(`Added amenity: ${text}`);
+                        const textLower = text.toLowerCase();
+                        if (text &&
+                          text.length > 2 &&
+                          text.length < 150 &&
+                          !seen.has(textLower) &&
+                          !textLower.match(/^(share|save|close|show|hide|more|less|×|back|what this place offers|amenities)$/i) &&
+                          /[a-zA-Z]/.test(text)) {
+                          seen.add(textLower);
+                          amenitiesList.push(text);
+                        }
+                      }
+                    });
+                  });
                 }
               } else {
-                // Fallback: try to get text from the item itself if it has an SVG
-                const hasIcon = item.querySelector('svg') !== null;
-                if (hasIcon) {
-                  // Try to find text in spans or divs that might contain the name
-                  const textElements = item.querySelectorAll('span, div');
-                  for (const elem of Array.from(textElements)) {
-                    const elemText = elem.textContent?.trim() || '';
-                    if (elemText &&
-                      elemText.length > 2 &&
-                      elemText.length < 150 &&
-                      !elemText.toLowerCase().startsWith('unavailable') &&
-                      !elemText.match(/^(share|save|close|show|hide|more|less|×|back)$/i)) {
-                      const textLower = elemText.toLowerCase();
-                      if (!seen.has(textLower) && /[a-zA-Z]/.test(elemText)) {
+                console.log('Found amenities dialog');
+
+                // Find all ul[role="list"] elements inside the dialog
+                const lists = dialog.querySelectorAll('ul[role="list"]');
+                console.log(`Found ${lists.length} amenity lists`);
+
+                lists.forEach((list, listIndex) => {
+                  const items = list.querySelectorAll('li');
+                  console.log(`List ${listIndex + 1} has ${items.length} items`);
+
+                  items.forEach((item, itemIndex) => {
+                    // Find the amenity name element
+                    // It's typically in a div with id containing "row-title" or class "twad414"
+                    const nameElement = item.querySelector('div[id*="row-title"], div.twad414, div[class*="row-title"]');
+
+                    if (nameElement) {
+                      let text = nameElement.textContent?.trim() || '';
+
+                      // Skip "Unavailable:" items
+                      if (text.toLowerCase().startsWith('unavailable:')) {
+                        return;
+                      }
+
+                      // Remove "Unavailable:" prefix if present
+                      text = text.replace(/^Unavailable:\s*/i, '').trim();
+
+                      // Clean up - get just the amenity name, not descriptions
+                      text = text.split('\n')[0].split('–')[0].split('—')[0].trim();
+                      text = text.replace(/\s+/g, ' ');
+
+                      const textLower = text.toLowerCase();
+
+                      // Filter for valid amenities
+                      if (text &&
+                        text.length > 2 &&
+                        text.length < 150 &&
+                        !seen.has(textLower) &&
+                        !textLower.match(/^(share|save|close|show|hide|more|less|×|back|what this place offers|amenities|not included)$/i) &&
+                        !textLower.includes('unavailable') &&
+                        /[a-zA-Z]/.test(text)) {
+
                         seen.add(textLower);
-                        amenitiesList.push(elemText);
-                        break; // Found one, move to next item
+                        amenitiesList.push(text);
+                        console.log(`Added amenity: ${text}`);
+                      }
+                    } else {
+                      // Fallback: try to get text from the item itself if it has an SVG
+                      const hasIcon = item.querySelector('svg') !== null;
+                      if (hasIcon) {
+                        // Try to find text in spans or divs that might contain the name
+                        const textElements = item.querySelectorAll('span, div');
+                        for (const elem of Array.from(textElements)) {
+                          const elemText = elem.textContent?.trim() || '';
+                          if (elemText &&
+                            elemText.length > 2 &&
+                            elemText.length < 150 &&
+                            !elemText.toLowerCase().startsWith('unavailable') &&
+                            !elemText.match(/^(share|save|close|show|hide|more|less|×|back)$/i)) {
+                            const textLower = elemText.toLowerCase();
+                            if (!seen.has(textLower) && /[a-zA-Z]/.test(elemText)) {
+                              seen.add(textLower);
+                              amenitiesList.push(elemText);
+                              break; // Found one, move to next item
+                            }
+                          }
+                        }
                       }
                     }
-                  }
-                }
+                  });
+                });
               }
+
+              console.log(`Found ${amenitiesList.length} amenities from /amenities page`);
+              return amenitiesList;
             });
-          });
-        }
 
-        console.log(`Found ${amenitiesList.length} amenities from /amenities page`);
-        return amenitiesList;
-      });
+            amenities.push(...allAmenities);
+            progressCallback?.('extracting-amenities', `Found ${amenities.length} amenities`, 85, `Found ${amenities.length} amenities`);
+            console.log('Found amenities:', amenities.length);
 
-      amenities.push(...allAmenities);
-      progressCallback?.('extracting-amenities', `Found ${amenities.length} amenities`, 85, `Found ${amenities.length} amenities`);
-      console.log('Found amenities:', amenities.length);
+            // Navigate back to main listing page before continuing
+            try {
+              await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+              await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for page to stabilize
+            } catch (navBackError) {
+              console.log('Failed to navigate back to main page, but continuing...', navBackError);
+              // Try to continue anyway - page might still be usable
+            }
+          } catch (error) {
+            progressCallback?.('extracting-amenities', 'Amenities extraction failed, continuing...', 80, `Could not extract amenities: ${error instanceof Error ? error.message : String(error)}`);
+            console.log('Could not extract amenities:', error);
 
-      // Navigate back to main listing page before continuing
+            // Ensure we're back on the main page before trying fallback
+            try {
+              // Check if page is still valid
+              const pageUrl = page.url();
+              if (!pageUrl.includes(url.split('/').pop() || '')) {
+                console.log('Page is not on main listing, navigating back...');
+                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                await new Promise(resolve => setTimeout(resolve, 2000));
+              }
+            } catch (navError) {
+              console.log('Could not navigate back to main page, skipping amenities fallback');
+            }
+
+            // Try to extract amenities from the main page as fallback (only if page is valid)
+            try {
+              const mainPageAmenities = await page.evaluate(() => {
+                const amenitiesList: string[] = [];
+                const seen = new Set<string>();
+
+                // Look for amenities on the main page
+                const amenitySelectors = [
+                  'div[data-section-id*="amenities"]',
+                  'div[data-testid*="amenity"]',
+                  'section[data-section-id*="amenities"]',
+                ];
+
+                for (const selector of amenitySelectors) {
+                  const elements = document.querySelectorAll(selector);
+                  elements.forEach(elem => {
+                    const text = elem.textContent?.trim() || '';
+                    if (text && text.length > 3 && text.length < 100 && !seen.has(text)) {
+                      seen.add(text);
+                      amenitiesList.push(text);
+                    }
+                  });
+                }
+
+                return amenitiesList;
+              });
+              amenities.push(...mainPageAmenities);
+              console.log(`Found ${mainPageAmenities.length} amenities from main page fallback`);
+            } catch (fallbackError) {
+              console.log('Fallback amenities extraction also failed - continuing without amenities');
+              // Don't throw - amenities are optional, continue with import
+            }
+          }
+        })(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Amenities extraction timeout')), 30000)
+        )
+      ]);
+    } catch (timeoutError) {
+      console.log('Amenities extraction timed out or failed, continuing without amenities:', timeoutError);
+      progressCallback?.('extracting-amenities', 'Amenities extraction timed out, continuing...', 80, 'Amenities extraction took too long, skipping...');
+      // Ensure we're back on main page
       try {
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for page to stabilize
-      } catch (navBackError) {
-        console.log('Failed to navigate back to main page, but continuing...', navBackError);
-        // Try to continue anyway - page might still be usable
-      }
-    } catch (error) {
-      progressCallback?.('extracting-amenities', 'Amenities extraction failed, continuing...', 80, `Could not extract amenities: ${error instanceof Error ? error.message : String(error)}`);
-      console.log('Could not extract amenities:', error);
-
-      // Ensure we're back on the main page before trying fallback
-      try {
-        // Check if page is still valid
         const pageUrl = page.url();
         if (!pageUrl.includes(url.split('/').pop() || '')) {
-          console.log('Page is not on main listing, navigating back...');
-          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       } catch (navError) {
-        console.log('Could not navigate back to main page, skipping amenities fallback');
-      }
-
-      // Try to extract amenities from the main page as fallback (only if page is valid)
-      try {
-        const mainPageAmenities = await page.evaluate(() => {
-          const amenitiesList: string[] = [];
-          const seen = new Set<string>();
-
-          // Look for amenities on the main page
-          const amenitySelectors = [
-            'div[data-section-id*="amenities"]',
-            'div[data-testid*="amenity"]',
-            'section[data-section-id*="amenities"]',
-          ];
-
-          for (const selector of amenitySelectors) {
-            const elements = document.querySelectorAll(selector);
-            elements.forEach(elem => {
-              const text = elem.textContent?.trim() || '';
-              if (text && text.length > 3 && text.length < 100 && !seen.has(text)) {
-                seen.add(text);
-                amenitiesList.push(text);
-              }
-            });
-          }
-
-          return amenitiesList;
-        });
-        amenities.push(...mainPageAmenities);
-        console.log(`Found ${mainPageAmenities.length} amenities from main page fallback`);
-      } catch (fallbackError) {
-        console.log('Fallback amenities extraction also failed - continuing without amenities');
-        // Don't throw - amenities are optional, continue with import
+        console.log('Could not navigate back after amenities timeout');
       }
     }
 
