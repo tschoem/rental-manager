@@ -119,7 +119,7 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
           // Or we can directly use the executable from the extracted location
 
           // Find and decompress the chromium executable
-          const { readdirSync, statSync, chmodSync, readFileSync, writeFileSync: fsWriteFileSync } = await import('fs');
+          const { readdirSync, statSync, chmodSync, readFileSync, writeFileSync: fsWriteFileSync, existsSync } = await import('fs');
           const brotli = await import('brotli');
           const files = readdirSync(binPath);
 
@@ -130,89 +130,71 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
           let chromiumBrFile: string | undefined;
           let chromiumExecutable: string | undefined;
 
-          // Look specifically for chromium.br (the actual Chromium executable)
-          // Ignore all .tar files and other non-executable files
-          for (const file of files) {
+          // Extract all brotli files to ensure we have dependencies (libs, fonts, swiftshader)
+          const brotliFiles = files.filter(f => f.endsWith('.br'));
+
+          for (const file of brotliFiles) {
             const filePath = join(binPath, file);
-            const stats = statSync(filePath);
+            const decompressedFilename = file.replace('.br', '');
+            const decompressedPath = join(binPath, decompressedFilename);
 
-            // Skip directories, tar files (including .tar.br), swiftshader, fonts, al2023, and library files
-            if (stats.isDirectory() ||
-              file.endsWith('.tar') ||
-              file.includes('swiftshader') ||
-              file.includes('fonts') ||
-              file.includes('al2023') ||
-              file.includes('lib') ||
-              file.includes('so')) {
-              continue;
-            }
-
-            if (stats.isFile()) {
-              // Look EXACTLY for chromium.br (not chromium-something.br, not chrome.br)
-              if (file === 'chromium.br') {
-                chromiumBrFile = file;
-                chromiumExecutable = 'chromium'; // Remove .br extension
-                console.log(`Found Chromium executable: ${chromiumBrFile} -> ${chromiumExecutable}`);
-                break; // Found exact match, stop looking
-              }
-              // Look for uncompressed chromium executable
-              else if (file === 'chromium' && !file.endsWith('.br') && !file.endsWith('.tar')) {
-                chromiumExecutable = file;
-                console.log(`Found uncompressed Chromium executable: ${chromiumExecutable}`);
-                break;
-              }
-            }
-          }
-
-          // Verify we found chromium.br (exact match only, no fallbacks)
-          if (!chromiumExecutable && !chromiumBrFile) {
-            throw new Error(`chromium.br not found in extracted bin directory: ${binPath}. Available files: ${files.join(', ')}. Make sure chromium-pack.tar contains chromium.br`);
-          }
-
-          // Ensure we have chromium.br, not some other file
-          if (chromiumBrFile && chromiumBrFile !== 'chromium.br') {
-            throw new Error(`Found wrong file: ${chromiumBrFile}. Expected chromium.br. Available files: ${files.join(', ')}`);
-          }
-
-          // If we have chromiumBrFile but not chromiumExecutable, set it
-          if (chromiumBrFile && !chromiumExecutable) {
-            chromiumExecutable = 'chromium';
-          }
-
-          // Final check that we have a valid executable name
-          if (!chromiumExecutable || chromiumExecutable !== 'chromium') {
-            throw new Error(`Invalid executable name: ${chromiumExecutable || 'undefined'}. Expected chromium. Available files: ${files.join(', ')}`);
-          }
-
-          // Assign to the outer variable, do NOT use 'const' here as it shadows the variable
-          executablePath = join(binPath, chromiumExecutable);
-
-          // If we found a .br file, decompress it
-          if (chromiumBrFile) {
-            // Check if already decompressed
-            const exists = (() => {
-              try {
-                return statSync(executablePath).isFile();
-              } catch {
-                return false;
-              }
-            })();
-
-            if (!exists) {
-              console.log(`Decompressing ${chromiumBrFile}...`);
-              const brFilePath = join(binPath, chromiumBrFile);
-              const compressedData = readFileSync(brFilePath);
-              // Use brotli.decompress (the package exports decompress function)
+            // Skip if already decompressed
+            if (!existsSync(decompressedPath)) {
+              console.log(`Decompressing ${file}...`);
+              const compressedData = readFileSync(filePath);
               const decompressedData = (brotli as any).decompress(compressedData);
               if (!decompressedData) {
-                throw new Error('Failed to decompress chromium.br file');
+                console.error(`Failed to decompress ${file}`);
+                continue;
               }
-              fsWriteFileSync(executablePath, Buffer.from(decompressedData));
-              console.log(`Decompressed to: ${executablePath}`);
+              fsWriteFileSync(decompressedPath, Buffer.from(decompressedData));
+              console.log(`Decompressed to: ${decompressedPath}`);
             } else {
-              console.log(`Chromium executable already decompressed: ${executablePath}`);
+              console.log(`${decompressedFilename} already exists.`);
+            }
+
+            // If it's a tar file, extract it
+            if (decompressedFilename.endsWith('.tar')) {
+              console.log(`Extracting ${decompressedFilename}...`);
+              await extract({
+                file: decompressedPath,
+                cwd: binPath,
+              });
             }
           }
+
+          // Find the chromium executable again after extraction
+          const updatedFiles = readdirSync(binPath);
+          console.log(`Files after extraction: ${updatedFiles.join(', ')}`);
+
+          chromiumExecutable = updatedFiles.find(f => f === 'chromium');
+
+          if (!chromiumExecutable) {
+            // Try to find it again if it wasn't found before
+            chromiumExecutable = 'chromium';
+            // Check if it actually exists now
+            if (!updatedFiles.includes(chromiumExecutable)) {
+              throw new Error(`Chromium executable not found after extraction. Available files: ${updatedFiles.join(', ')}`);
+            }
+          }
+
+          // Assign to the outer variable
+          executablePath = join(binPath, chromiumExecutable);
+
+          // Setup environment variables for libraries
+          // Add the bin directory itself to LD_LIBRARY_PATH as some libs might be there
+          const currentLdLibraryPath = process.env.LD_LIBRARY_PATH || '';
+          const libPath = join(binPath, 'lib');
+
+          let newLdLibraryPath = binPath;
+          if (existsSync(libPath)) {
+            console.log(`Found lib folder, adding to LD_LIBRARY_PATH`);
+            newLdLibraryPath = `${libPath}:${newLdLibraryPath}`;
+          }
+
+          process.env.LD_LIBRARY_PATH = `${newLdLibraryPath}:${currentLdLibraryPath}`;
+          console.log(`Set LD_LIBRARY_PATH to include: ${newLdLibraryPath}`);
+
 
           // Verify the file exists and is a file (not a directory)
           const finalStats = statSync(executablePath);
