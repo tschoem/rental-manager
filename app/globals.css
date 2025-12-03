@@ -470,6 +470,11 @@ button {
   z-index: 99;
 }
 
+/* Breadcrumbs */
+.breadcrumbs {
+  display: block;
+}
+
 /* Responsive Styles */
 @media (max-width: 767px) {
   .hamburger-button {
@@ -490,6 +495,10 @@ button {
 
   .site-logo {
     font-size: 1.5rem;
+  }
+
+  .breadcrumbs {
+    display: none;
   }
 }
 

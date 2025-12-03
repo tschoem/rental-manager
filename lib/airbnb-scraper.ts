@@ -952,21 +952,19 @@ export async function scrapeAirbnbListing(
     // Extract amenities from the dedicated /amenities page
     const amenities: string[] = [];
     try {
+      progressCallback?.('extracting-amenities', 'Extracting amenities...', 80, 'Extracting amenities from /amenities page...');
       console.log('Extracting amenities from /amenities page...');
 
-      // Navigate to the amenities page
+      // Navigate to the amenities page (reuse existing page to save memory)
       const amenitiesUrl = url.endsWith('/') ? `${url}amenities` : `${url}/amenities`;
       console.log('Navigating to:', amenitiesUrl);
 
-      const amenitiesPage = await browser.newPage();
-      await amenitiesPage.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-      await amenitiesPage.setViewport({ width: 1920, height: 1080 });
-
-      await amenitiesPage.goto(amenitiesUrl, { waitUntil: 'networkidle2', timeout: 60000 });
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for page to load
+      // Navigate current page to amenities URL
+      await page.goto(amenitiesUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for page to load
 
       // Extract amenities from the amenities page
-      const allAmenities = await amenitiesPage.evaluate(() => {
+      const allAmenities = await page.evaluate(() => {
         const amenitiesList: string[] = [];
         const seen = new Set<string>();
 
@@ -1089,11 +1087,46 @@ export async function scrapeAirbnbListing(
       });
 
       amenities.push(...allAmenities);
+      progressCallback?.('extracting-amenities', `Found ${amenities.length} amenities`, 85, `Found ${amenities.length} amenities`);
       console.log('Found amenities:', amenities.length);
 
-      await amenitiesPage.close();
+      // Navigate back to main listing page
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await new Promise(resolve => setTimeout(resolve, 1000));
     } catch (error) {
+      progressCallback?.('extracting-amenities', 'Amenities extraction failed, continuing...', 80, `Could not extract amenities: ${error instanceof Error ? error.message : String(error)}`);
       console.log('Could not extract amenities:', error);
+      // Try to extract amenities from the main page as fallback
+      try {
+        const mainPageAmenities = await page.evaluate(() => {
+          const amenitiesList: string[] = [];
+          const seen = new Set<string>();
+
+          // Look for amenities on the main page
+          const amenitySelectors = [
+            'div[data-section-id*="amenities"]',
+            'div[data-testid*="amenity"]',
+            'section[data-section-id*="amenities"]',
+          ];
+
+          for (const selector of amenitySelectors) {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(elem => {
+              const text = elem.textContent?.trim() || '';
+              if (text && text.length > 3 && text.length < 100 && !seen.has(text)) {
+                seen.add(text);
+                amenitiesList.push(text);
+              }
+            });
+          }
+
+          return amenitiesList;
+        });
+        amenities.push(...mainPageAmenities);
+        console.log(`Found ${mainPageAmenities.length} amenities from main page fallback`);
+      } catch (fallbackError) {
+        console.log('Fallback amenities extraction also failed');
+      }
     }
 
     // Extract price
