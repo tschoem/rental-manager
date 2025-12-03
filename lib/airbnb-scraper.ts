@@ -229,10 +229,24 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
           console.log(`Using cached Chromium executable path: ${executablePath}`);
         }
 
+        // Final verification that executablePath is set before launching
+        if (!executablePath) {
+          throw new Error('Chromium executable path is not set. This should not happen.');
+        }
+
+        // Verify the file exists and is accessible
+        const { accessSync, constants } = await import('fs');
+        try {
+          accessSync(executablePath, constants.F_OK | constants.X_OK);
+        } catch (err) {
+          throw new Error(`Chromium executable not accessible at ${executablePath}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+
+        console.log(`Launching browser with executable: ${executablePath}`);
         browser = await puppeteerCore.launch({
           args: chromiumMin.args,
           defaultViewport: { width: 1920, height: 1080 },
-          executablePath,
+          executablePath: executablePath, // Explicitly set to ensure TypeScript knows it's defined
           headless: true,
         });
         console.log('Chromium browser launched successfully');
