@@ -1,3 +1,8 @@
+// IMPORTANT: Ensure schema provider matches DATABASE_URL before importing PrismaClient
+// This is a runtime check to catch cases where the schema wasn't updated during build
+import { ensureSchemaProvider } from './ensure-schema-provider';
+ensureSchemaProvider();
+
 import { PrismaClient } from '../generated/client/client'
 import { normalizeDatabaseUrl } from './db-path'
 import { resolve } from 'path'

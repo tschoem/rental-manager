@@ -400,6 +400,7 @@ export type ImageCreateOrConnectWithoutPropertyInput = {
 
 export type ImageCreateManyPropertyInputEnvelope = {
   data: Prisma.ImageCreateManyPropertyInput | Prisma.ImageCreateManyPropertyInput[]
+  skipDuplicates?: boolean
 }
 
 export type ImageUpsertWithWhereUniqueWithoutPropertyInput = {
@@ -447,6 +448,7 @@ export type ImageCreateOrConnectWithoutRoomInput = {
 
 export type ImageCreateManyRoomInputEnvelope = {
   data: Prisma.ImageCreateManyRoomInput | Prisma.ImageCreateManyRoomInput[]
+  skipDuplicates?: boolean
 }
 
 export type ImageUpsertWithWhereUniqueWithoutRoomInput = {
@@ -1232,6 +1234,7 @@ export type ImageCreateManyArgs<ExtArgs extends runtime.Types.Extensions.Interna
    * The data used to create many Images.
    */
   data: Prisma.ImageCreateManyInput | Prisma.ImageCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1250,6 +1253,7 @@ export type ImageCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Extension
    * The data used to create many Images.
    */
   data: Prisma.ImageCreateManyInput | Prisma.ImageCreateManyInput[]
+  skipDuplicates?: boolean
   /**
    * Choose, which related nodes to fetch as well
    */

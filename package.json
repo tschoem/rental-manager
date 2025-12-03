@@ -23,12 +23,13 @@
     "open-source"
   ],
   "scripts": {
-    "dev": "tsx scripts/update-schema-provider.ts && prisma generate && tsx scripts/copy-prisma-engine.ts && next dev",
-    "build": "tsx scripts/update-schema-provider.ts && prisma generate && tsx scripts/copy-prisma-engine.ts && next build",
+    "dev": "tsx scripts/update-schema-provider.ts && rm -rf generated && prisma generate && tsx scripts/copy-prisma-engine.ts && next dev",
+    "build": "tsx scripts/update-schema-provider.ts && rm -rf generated && prisma generate && tsx scripts/copy-prisma-engine.ts && next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "tsx scripts/update-schema-provider.ts && prisma generate && tsx scripts/copy-prisma-engine.ts",
-    "vercel-build": "tsx scripts/update-schema-provider.ts && prisma generate && tsx scripts/copy-prisma-engine.ts && next build",
+    "postinstall": "tsx scripts/update-schema-provider.ts && rm -rf generated && prisma generate && tsx scripts/copy-prisma-engine.ts",
+    "vercel-build": "tsx scripts/update-schema-provider.ts && rm -rf generated && prisma generate && tsx scripts/copy-prisma-engine.ts && next build",
+    "prisma:generate": "tsx scripts/update-schema-provider.ts && rm -rf generated && prisma generate",
     "setup": "tsx scripts/setup.ts",
     "setup-admin": "tsx scripts/setup-admin.ts",
     "update-property-admin": "tsx scripts/update-property-admin.ts",

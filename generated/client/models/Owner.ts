@@ -1485,6 +1485,7 @@ export type OwnerCreateManyArgs<ExtArgs extends runtime.Types.Extensions.Interna
    * The data used to create many Owners.
    */
   data: Prisma.OwnerCreateManyInput | Prisma.OwnerCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1503,6 +1504,7 @@ export type OwnerCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Extension
    * The data used to create many Owners.
    */
   data: Prisma.OwnerCreateManyInput | Prisma.OwnerCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**

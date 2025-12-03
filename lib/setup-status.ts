@@ -1,3 +1,7 @@
+import { ensureSchemaProvider } from './ensure-schema-provider';
+// Ensure schema provider is correct before importing PrismaClient
+ensureSchemaProvider();
+
 import { PrismaClient } from '../generated/client/client';
 import { resolve, dirname } from 'path';
 import { existsSync, statSync } from 'fs';

@@ -955,6 +955,7 @@ export type AboutPageSettingsCreateManyArgs<ExtArgs extends runtime.Types.Extens
    * The data used to create many AboutPageSettings.
    */
   data: Prisma.AboutPageSettingsCreateManyInput | Prisma.AboutPageSettingsCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -973,6 +974,7 @@ export type AboutPageSettingsCreateManyAndReturnArgs<ExtArgs extends runtime.Typ
    * The data used to create many AboutPageSettings.
    */
   data: Prisma.AboutPageSettingsCreateManyInput | Prisma.AboutPageSettingsCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**

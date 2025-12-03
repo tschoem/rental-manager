@@ -1291,6 +1291,7 @@ export type LocationPageSettingsCreateManyArgs<ExtArgs extends runtime.Types.Ext
    * The data used to create many LocationPageSettings.
    */
   data: Prisma.LocationPageSettingsCreateManyInput | Prisma.LocationPageSettingsCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1309,6 +1310,7 @@ export type LocationPageSettingsCreateManyAndReturnArgs<ExtArgs extends runtime.
    * The data used to create many LocationPageSettings.
    */
   data: Prisma.LocationPageSettingsCreateManyInput | Prisma.LocationPageSettingsCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**

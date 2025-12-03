@@ -432,6 +432,7 @@ export type HomePageImageCreateOrConnectWithoutHomePageSettingsInput = {
 
 export type HomePageImageCreateManyHomePageSettingsInputEnvelope = {
   data: Prisma.HomePageImageCreateManyHomePageSettingsInput | Prisma.HomePageImageCreateManyHomePageSettingsInput[]
+  skipDuplicates?: boolean
 }
 
 export type HomePageImageUpsertWithWhereUniqueWithoutHomePageSettingsInput = {
@@ -1206,6 +1207,7 @@ export type HomePageImageCreateManyArgs<ExtArgs extends runtime.Types.Extensions
    * The data used to create many HomePageImages.
    */
   data: Prisma.HomePageImageCreateManyInput | Prisma.HomePageImageCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1224,6 +1226,7 @@ export type HomePageImageCreateManyAndReturnArgs<ExtArgs extends runtime.Types.E
    * The data used to create many HomePageImages.
    */
   data: Prisma.HomePageImageCreateManyInput | Prisma.HomePageImageCreateManyInput[]
+  skipDuplicates?: boolean
   /**
    * Choose, which related nodes to fetch as well
    */

@@ -496,6 +496,7 @@ export type ReviewCreateOrConnectWithoutRoomInput = {
 
 export type ReviewCreateManyRoomInputEnvelope = {
   data: Prisma.ReviewCreateManyRoomInput | Prisma.ReviewCreateManyRoomInput[]
+  skipDuplicates?: boolean
 }
 
 export type ReviewUpsertWithWhereUniqueWithoutRoomInput = {
@@ -1303,6 +1304,7 @@ export type ReviewCreateManyArgs<ExtArgs extends runtime.Types.Extensions.Intern
    * The data used to create many Reviews.
    */
   data: Prisma.ReviewCreateManyInput | Prisma.ReviewCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1321,6 +1323,7 @@ export type ReviewCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Extensio
    * The data used to create many Reviews.
    */
   data: Prisma.ReviewCreateManyInput | Prisma.ReviewCreateManyInput[]
+  skipDuplicates?: boolean
   /**
    * Choose, which related nodes to fetch as well
    */

@@ -14,7 +14,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"  // Auto-detected from DATABASE_URL (sqlite|postgresql|mysql)
+  provider = "postgresql"  // Auto-detected from DATABASE_URL (sqlite|postgresql|mysql)
   url      = env("DATABASE_URL")
 }
 

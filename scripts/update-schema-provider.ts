@@ -7,11 +7,23 @@
 
 import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
+import { config } from 'dotenv';
+
+// Load environment variables from .env file
+const envPath = resolve(process.cwd(), '.env');
+config({ path: envPath });
 
 const schemaPath = resolve(process.cwd(), 'prisma/schema.prisma');
 
-// Get DATABASE_URL from environment
+// Get DATABASE_URL from environment (now includes .env file)
 const databaseUrl = process.env.DATABASE_URL?.trim() || '';
+
+if (!databaseUrl) {
+  console.error('❌ Error: DATABASE_URL is not set in environment variables.');
+  console.error('   This script must run with DATABASE_URL set.');
+  console.error('   On Vercel, ensure DATABASE_URL is set in project settings.');
+  process.exit(1);
+}
 
 // Determine provider from DATABASE_URL format
 let provider: string;
@@ -28,6 +40,7 @@ if (databaseUrl.startsWith('postgresql://') || databaseUrl.startsWith('postgres:
   provider = 'sqlite';
   console.warn(`⚠️  Could not determine database provider from DATABASE_URL. Defaulting to 'sqlite'.`);
   console.warn(`   DATABASE_URL format: ${databaseUrl.substring(0, 50)}...`);
+  console.warn(`   Supported formats: postgresql://, mysql://, file:, sqlite://`);
 }
 
 // Read the current schema
@@ -44,12 +57,13 @@ if (currentProvider !== provider) {
     /provider\s*=\s*["']\w+["']/,
     `provider = "${provider}"`
   );
-  
+
   // Write the updated schema
   writeFileSync(schemaPath, schemaContent, 'utf-8');
-  
+
   console.log(`✅ Updated Prisma schema: ${currentProvider || 'unknown'} → ${provider}`);
   console.log(`   Detected from DATABASE_URL: ${databaseUrl.substring(0, 50)}...`);
+  console.log(`   ⚠️  IMPORTANT: Prisma Client will be regenerated next in the build process`);
 } else {
   console.log(`✓ Prisma schema already configured for ${provider}`);
 }

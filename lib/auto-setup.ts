@@ -1,3 +1,7 @@
+import { ensureSchemaProvider } from './ensure-schema-provider';
+// Ensure schema provider is correct before importing PrismaClient
+ensureSchemaProvider();
+
 import { PrismaClient } from '../generated/client/client';
 import { existsSync, mkdirSync } from 'fs';
 import { dirname, resolve } from 'path';
@@ -171,11 +175,11 @@ export async function autoSetupDatabase(): Promise<{ success: boolean; message?:
       // This is more reliable in serverless environments like Vercel
       const { execSync } = await import('child_process');
       const schemaPath = resolve(process.cwd(), 'prisma/schema.prisma');
-      
+
       // Try to find prisma CLI in node_modules
       const prismaBinPath = resolve(process.cwd(), 'node_modules/.bin/prisma');
       const prismaCliPath = resolve(process.cwd(), 'node_modules/prisma/build/index.js');
-      
+
       let command: string;
       if (existsSync(prismaBinPath)) {
         // Use the .bin/prisma script
@@ -187,7 +191,7 @@ export async function autoSetupDatabase(): Promise<{ success: boolean; message?:
         // Fallback to npx (may fail on Vercel)
         command = `npx prisma db push --accept-data-loss --skip-generate --schema="${schemaPath}"`;
       }
-      
+
       execSync(command, {
         stdio: process.env.NODE_ENV === 'production' ? 'pipe' : 'inherit',
         env: { ...process.env, DATABASE_URL: normalizedDatabaseUrl },

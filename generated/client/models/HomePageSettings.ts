@@ -1679,6 +1679,7 @@ export type HomePageSettingsCreateManyArgs<ExtArgs extends runtime.Types.Extensi
    * The data used to create many HomePageSettings.
    */
   data: Prisma.HomePageSettingsCreateManyInput | Prisma.HomePageSettingsCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1697,6 +1698,7 @@ export type HomePageSettingsCreateManyAndReturnArgs<ExtArgs extends runtime.Type
    * The data used to create many HomePageSettings.
    */
   data: Prisma.HomePageSettingsCreateManyInput | Prisma.HomePageSettingsCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**

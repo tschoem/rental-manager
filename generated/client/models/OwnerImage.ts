@@ -380,6 +380,7 @@ export type OwnerImageCreateOrConnectWithoutOwnerInput = {
 
 export type OwnerImageCreateManyOwnerInputEnvelope = {
   data: Prisma.OwnerImageCreateManyOwnerInput | Prisma.OwnerImageCreateManyOwnerInput[]
+  skipDuplicates?: boolean
 }
 
 export type OwnerImageUpsertWithWhereUniqueWithoutOwnerInput = {
@@ -1154,6 +1155,7 @@ export type OwnerImageCreateManyArgs<ExtArgs extends runtime.Types.Extensions.In
    * The data used to create many OwnerImages.
    */
   data: Prisma.OwnerImageCreateManyInput | Prisma.OwnerImageCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1172,6 +1174,7 @@ export type OwnerImageCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Exte
    * The data used to create many OwnerImages.
    */
   data: Prisma.OwnerImageCreateManyInput | Prisma.OwnerImageCreateManyInput[]
+  skipDuplicates?: boolean
   /**
    * Choose, which related nodes to fetch as well
    */

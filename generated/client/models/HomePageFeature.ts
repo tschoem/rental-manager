@@ -496,6 +496,7 @@ export type HomePageFeatureCreateOrConnectWithoutHomePageSettingsInput = {
 
 export type HomePageFeatureCreateManyHomePageSettingsInputEnvelope = {
   data: Prisma.HomePageFeatureCreateManyHomePageSettingsInput | Prisma.HomePageFeatureCreateManyHomePageSettingsInput[]
+  skipDuplicates?: boolean
 }
 
 export type HomePageFeatureUpsertWithWhereUniqueWithoutHomePageSettingsInput = {
@@ -1303,6 +1304,7 @@ export type HomePageFeatureCreateManyArgs<ExtArgs extends runtime.Types.Extensio
    * The data used to create many HomePageFeatures.
    */
   data: Prisma.HomePageFeatureCreateManyInput | Prisma.HomePageFeatureCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1321,6 +1323,7 @@ export type HomePageFeatureCreateManyAndReturnArgs<ExtArgs extends runtime.Types
    * The data used to create many HomePageFeatures.
    */
   data: Prisma.HomePageFeatureCreateManyInput | Prisma.HomePageFeatureCreateManyInput[]
+  skipDuplicates?: boolean
   /**
    * Choose, which related nodes to fetch as well
    */
