@@ -3,7 +3,8 @@ import puppeteerCore from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
 
 // Dynamic import for puppeteer (only used locally)
-let puppeteer: typeof import('puppeteer') | null = null;
+// Using 'any' type to avoid TypeScript issues with dynamic imports
+let puppeteer: any = null;
 
 export interface AirbnbListingData {
   title: string;
@@ -33,7 +34,7 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
           args: chromium.args,
           defaultViewport: { width: 1920, height: 1080 },
           executablePath: await chromium.executablePath(),
-          headless: chromium.headless,
+          headless: true,
         });
         console.log('Chromium browser launched successfully');
       } catch (chromiumError) {
@@ -69,7 +70,7 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
     console.log('Navigating to:', url);
 
     // Capture browser console logs
-    page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+    page.on('console', (msg: any) => console.log('PAGE LOG:', msg.text()));
 
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
 
@@ -615,7 +616,7 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
     });
 
     // Add page images that aren't already in our collection
-    pageImages.forEach(imgUrl => {
+    pageImages.forEach((imgUrl: string) => {
       if (!existingUrls.has(imgUrl)) {
         images.push(imgUrl);
         existingUrls.add(imgUrl);
