@@ -1,6 +1,6 @@
 // Use puppeteer-core for serverless, puppeteer for local dev
 import puppeteerCore from 'puppeteer-core';
-import chromium from '@sparticuz/chromium-min';
+import chromiumMin from '@sparticuz/chromium-min';
 
 // Dynamic import for puppeteer (only used locally)
 // Using 'any' type to avoid TypeScript issues with dynamic imports
@@ -18,6 +18,9 @@ export interface AirbnbListingData {
 // Detect if we're running on Vercel or similar serverless environment
 const isVercel = !!(process.env.VERCEL || process.env.VERCEL_URL || process.env.AWS_LAMBDA_FUNCTION_NAME);
 
+// Cache for Chromium executable path (to avoid re-downloading)
+let cachedExecutablePath: string | null = null;
+
 export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Promise<AirbnbListingData> {
   let browser;
 
@@ -27,18 +30,89 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
 
     if (isVercel) {
       // Use @sparticuz/chromium-min for Vercel/serverless environments
-      // chromium-min is smaller and designed to fit within Vercel's 250MB function limit
+      // The Chromium binaries are packaged at build time into public/chromium-pack.tar
+      // chromium-min downloads and extracts from the hosted tar file at runtime
       console.log('Using @sparticuz/chromium-min for serverless environment');
 
       try {
-        // Get the Chromium executable path
-        // On Vercel, chromium.executablePath() will download/extract the binary if needed
-        const executablePath = await chromium.executablePath();
+        // Use cached path if available, otherwise download and extract from tar
+        let executablePath = cachedExecutablePath;
 
-        console.log(`Chromium executable path: ${executablePath}`);
+        if (!executablePath) {
+          // Get the base URL for the deployment
+          const baseUrl = process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+          const tarUrl = `${baseUrl}/chromium-pack.tar`;
+          console.log(`Downloading Chromium from: ${tarUrl}`);
+
+          // Download the tar file
+          const response = await fetch(tarUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to download chromium-pack.tar: ${response.status} ${response.statusText}`);
+          }
+
+          const tarBuffer = Buffer.from(await response.arrayBuffer());
+
+          // Extract to /tmp (writable directory on Vercel)
+          const { extract } = await import('tar');
+          const { mkdirSync, writeFileSync } = await import('fs');
+          const { join } = await import('path');
+
+          const extractPath = '/tmp/chromium-bin';
+          const tarFilePath = '/tmp/chromium-pack.tar';
+
+          mkdirSync(extractPath, { recursive: true });
+
+          // Write tar buffer to temporary file
+          writeFileSync(tarFilePath, tarBuffer);
+
+          // Extract from the file
+          await extract({
+            file: tarFilePath,
+            cwd: extractPath,
+          });
+
+          // Point chromium-min to the extracted bin directory
+          // chromium-min expects the bin directory to exist with brotli files
+          const binPath = join(extractPath, 'bin');
+          console.log(`Chromium extracted to: ${binPath}`);
+
+          // Use chromium-min but point it to our extracted location
+          // We need to set an environment variable or use chromium-min's API
+          // Actually, chromium-min looks for bin in node_modules, so we might need to symlink
+          // Or we can directly use the executable from the extracted location
+
+          // Find the chromium executable in the extracted bin directory
+          const { readdirSync, statSync } = await import('fs');
+          const files = readdirSync(binPath);
+
+          // Look for the chromium executable (usually chrome or chromium)
+          let chromiumExecutable: string | undefined;
+          for (const file of files) {
+            const filePath = join(binPath, file);
+            const stats = statSync(filePath);
+            // Check if it's an executable file (not a directory)
+            if (stats.isFile() && (file.includes('chrome') || file.includes('chromium'))) {
+              chromiumExecutable = file;
+              break;
+            }
+          }
+
+          if (!chromiumExecutable) {
+            throw new Error(`Chromium executable not found in extracted bin directory: ${binPath}`);
+          }
+
+          executablePath = join(binPath, chromiumExecutable);
+          cachedExecutablePath = executablePath;
+          console.log(`Chromium executable found: ${executablePath}`);
+        } else {
+          console.log(`Using cached Chromium executable path: ${executablePath}`);
+        }
 
         browser = await puppeteerCore.launch({
-          args: chromium.args,
+          args: chromiumMin.args,
           defaultViewport: { width: 1920, height: 1080 },
           executablePath,
           headless: true,
@@ -47,7 +121,7 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
       } catch (chromiumError) {
         console.error('Failed to launch Chromium:', chromiumError);
         console.error('Chromium error details:', JSON.stringify(chromiumError, Object.getOwnPropertyNames(chromiumError)));
-        throw new Error(`Failed to launch browser on Vercel: ${chromiumError instanceof Error ? chromiumError.message : String(chromiumError)}. The Chromium binary may not be included in the deployment. Check Vercel function size limits.`);
+        throw new Error(`Failed to launch browser on Vercel: ${chromiumError instanceof Error ? chromiumError.message : String(chromiumError)}. Make sure chromium-pack.tar is available at /chromium-pack.tar`);
       }
     } else {
       // Use regular Puppeteer for local development

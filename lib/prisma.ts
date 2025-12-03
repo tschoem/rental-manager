@@ -9,7 +9,7 @@ import { resolve } from 'path'
 import { existsSync } from 'fs'
 
 const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
+    prisma: PrismaClient | undefined
 }
 
 // Normalize DATABASE_URL to absolute path if it's a SQLite file path

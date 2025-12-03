@@ -54,3 +54,6 @@ prisma/*.db-wal
 
 # generated code
 /generated
+
+# chromium binaries (packaged at build time)
+/public/chromium-pack.tar
