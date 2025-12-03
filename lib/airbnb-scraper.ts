@@ -40,20 +40,54 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
 
         if (!executablePath) {
           // Get the base URL for the deployment
-          const baseUrl = process.env.VERCEL_URL
-            ? `https://${process.env.VERCEL_URL}`
-            : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+          // Preview URLs (VERCEL_URL) require authentication, so we need the production/public URL
+          // Try to read from filesystem first (if available in serverless function)
+          let tarBuffer: Buffer | null = null;
 
-          const tarUrl = `${baseUrl}/chromium-pack.tar`;
-          console.log(`Downloading Chromium from: ${tarUrl}`);
+          try {
+            // Try to read directly from filesystem (public folder is included in deployment)
+            const { readFileSync, existsSync } = await import('fs');
+            const { join } = await import('path');
+            const tarPath = join(process.cwd(), 'public', 'chromium-pack.tar');
 
-          // Download the tar file
-          const response = await fetch(tarUrl);
-          if (!response.ok) {
-            throw new Error(`Failed to download chromium-pack.tar: ${response.status} ${response.statusText}`);
+            if (existsSync(tarPath)) {
+              console.log(`Reading Chromium tar from filesystem: ${tarPath}`);
+              tarBuffer = readFileSync(tarPath);
+            }
+          } catch (fsError) {
+            console.log('Could not read from filesystem, will download from URL:', fsError);
           }
 
-          const tarBuffer = Buffer.from(await response.arrayBuffer());
+          // If not available from filesystem, download from public URL
+          if (!tarBuffer) {
+            // Use production/public URL - avoid preview URLs that require auth
+            let baseUrl: string;
+
+            if (process.env.NEXT_PUBLIC_APP_URL) {
+              // Custom domain or configured public URL (best option)
+              baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+            } else if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+              // Production deployment URL
+              baseUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+            } else {
+              // Fallback: construct production URL from project name
+              // VERCEL_URL is preview URL, but we can try to get production
+              // For now, use localhost for development
+              baseUrl = process.env.VERCEL ? 'https://rental-manager.vercel.app' : 'http://localhost:3000';
+            }
+
+            const tarUrl = `${baseUrl}/chromium-pack.tar`;
+            console.log(`Downloading Chromium from: ${tarUrl}`);
+            console.log(`Environment: NEXT_PUBLIC_APP_URL=${process.env.NEXT_PUBLIC_APP_URL}, VERCEL_PROJECT_PRODUCTION_URL=${process.env.VERCEL_PROJECT_PRODUCTION_URL}`);
+
+            // Download the tar file
+            const response = await fetch(tarUrl);
+            if (!response.ok) {
+              throw new Error(`Failed to download chromium-pack.tar from ${tarUrl}: ${response.status} ${response.statusText}. Make sure NEXT_PUBLIC_APP_URL is set to your public domain.`);
+            }
+
+            tarBuffer = Buffer.from(await response.arrayBuffer());
+          }
 
           // Extract to /tmp (writable directory on Vercel)
           const { extract } = await import('tar');
