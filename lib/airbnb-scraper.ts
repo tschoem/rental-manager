@@ -226,11 +226,23 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
         }
 
         console.log(`Launching browser with executable: ${executablePath}`);
+
+        // Add memory-saving flags
+        const minimalArgs = [
+          ...chromiumMin.args,
+          '--disable-dev-shm-usage', // Use /tmp instead of /dev/shm
+          '--no-zygote', // Disable zygote process to save memory
+          '--single-process', // Run in single process (risky but saves memory)
+          '--disable-gpu',
+          '--no-sandbox',
+        ];
+
         browser = await puppeteerCore.launch({
-          args: chromiumMin.args,
+          args: minimalArgs,
           defaultViewport: { width: 1920, height: 1080 },
           executablePath: executablePath, // Explicitly set to ensure TypeScript knows it's defined
           headless: true,
+          ignoreHTTPSErrors: true,
         });
         console.log('Chromium browser launched successfully');
       } catch (chromiumError) {
@@ -260,7 +272,19 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
 
     const page = await browser.newPage();
 
-    // Set user agent and viewport
+    // Optimize for low memory environments (Vercel)
+    // Block images, fonts, and stylesheets to save resources
+    await page.setRequestInterception(true);
+    page.on('request', (req: any) => {
+      const resourceType = req.resourceType();
+      if (['image', 'stylesheet', 'font', 'media', 'other'].includes(resourceType)) {
+        req.abort();
+      } else {
+        req.continue();
+      }
+    });
+
+    // Set user agent
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     await page.setViewport({ width: 1920, height: 1080 });
 
