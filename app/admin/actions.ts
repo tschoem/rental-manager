@@ -267,14 +267,33 @@ export async function importListing(formData: FormData) {
           console.log(`[IMPORT] All ${listingData.images.length} images already exist for property ${propertyId} or room ${room.id}`);
         }
       } else {
+        await updateImportProgress(propertyId, 'saving', 'No images to import, continuing...', 95, '[IMPORT] No images to import - this is OK, you can add images manually later');
         console.log(`[IMPORT] No images to import`);
       }
 
       console.log(`[IMPORT] Import completed successfully for room ${room.id}`);
 
-      await updateImportProgress(propertyId, 'complete', 'Import completed successfully!', 100, `[IMPORT] Import completed successfully for room ${room.id}`);
+      // Always mark as complete and redirect, even if images/amenities are empty
+      await updateImportProgress(propertyId, 'complete', 'Import completed successfully!', 100, `[IMPORT] Import completed successfully for room ${room.id}. Images: ${listingData.images.length}, Amenities: ${listingData.amenities.length}`);
       await markImportComplete(propertyId);
+
+      // Revalidate paths before redirect
+      revalidatePath(`/admin/properties/${propertyId}`);
+      revalidatePath('/admin/properties');
+
+      // Call redirect - it throws a special error that Next.js handles
+      redirect(`/admin/properties/${propertyId}`);
     } catch (error) {
+      // Check if this is a Next.js redirect (expected behavior, not an error)
+      if (error && typeof error === 'object' && 'digest' in error) {
+        const digest = (error as { digest?: string }).digest;
+        if (digest && typeof digest === 'string' && digest.includes('NEXT_REDIRECT')) {
+          // This is a redirect, not an error - rethrow it so Next.js handles it
+          console.log('[IMPORT] Redirect detected, rethrowing for Next.js to handle');
+          throw error;
+        }
+      }
+
       // Enhanced error logging
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
@@ -310,18 +329,15 @@ export async function importListing(formData: FormData) {
         userFriendlyMessage = `Redirect error. The server action tried to redirect but failed. Error: ${errorMessage}`;
       }
 
+      // Update progress with error status
+      await updateImportProgress(propertyId, 'error', `Import failed: ${userFriendlyMessage}`, 0, `[IMPORT] Error: ${errorMessage}`, userFriendlyMessage);
+      await markImportComplete(propertyId); // Mark as complete even on error
+
       // Throw error with detailed message - Next.js server actions will surface this
       const detailedError = new Error(userFriendlyMessage);
       (detailedError as Error & { cause?: unknown }).cause = error; // Preserve original error
       throw detailedError;
     }
-
-    // Only redirect if we got here successfully
-    revalidatePath(`/admin/properties/${propertyId}`);
-
-    // Next.js redirect() throws a special error - we need to let it propagate
-    // Don't catch it as an error
-    redirect(`/admin/properties/${propertyId}`);
   } catch (outerError) {
     // Check if this is a Next.js redirect (expected behavior, not an error)
     if (outerError && typeof outerError === 'object' && 'digest' in outerError) {
