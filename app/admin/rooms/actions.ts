@@ -121,15 +121,11 @@ export async function deleteRoomImage(imageId: string, roomId: string) {
         where: { id: imageId }
     });
 
-    // Delete the file if it's stored locally
-    if (image && (image.url.startsWith('/room-images/') || image.url.startsWith('/property-images/'))) {
+    // Delete the file using storage abstraction (handles Vercel Blob or local filesystem)
+    if (image && (image.url.startsWith('/') || image.url.startsWith('https://'))) {
         try {
-            const fs = await import('fs/promises');
-            const path = await import('path');
-            const filePath = path.join(process.cwd(), 'public', image.url);
-            await fs.unlink(filePath).catch(() => {
-                // Ignore errors if file doesn't exist
-            });
+            const { deleteFile } = await import('@/lib/storage');
+            await deleteFile(image.url);
         } catch (error) {
             console.error('Error deleting image file:', error);
         }
@@ -158,17 +154,13 @@ export async function deleteRoomImages(imageIds: string[], roomId: string) {
         }
     });
 
-    // Delete the files if they're stored locally
-    const fs = await import('fs/promises');
-    const path = await import('path');
+    // Delete the files using storage abstraction (handles Vercel Blob or local filesystem)
+    const { deleteFile } = await import('@/lib/storage');
     
     for (const image of images) {
-        if (image.url.startsWith('/room-images/') || image.url.startsWith('/property-images/')) {
+        if (image.url.startsWith('/') || image.url.startsWith('https://')) {
             try {
-                const filePath = path.join(process.cwd(), 'public', image.url);
-                await fs.unlink(filePath).catch(() => {
-                    // Ignore errors if file doesn't exist
-                });
+                await deleteFile(image.url);
             } catch (error) {
                 console.error('Error deleting image file:', error);
             }
@@ -212,24 +204,16 @@ export async function moveRoomImagesToProperty(imageIds: string[], roomId: strin
     });
 
     // Move files from room-images to property-images if needed
-    const fs = await import('fs/promises');
+    const { moveFile } = await import('@/lib/storage');
     const path = await import('path');
     
     for (const image of images) {
-        if (image.url.startsWith('/room-images/')) {
+        if (image.url.startsWith('/room-images/') || image.url.startsWith('https://')) {
             try {
-                const oldPath = path.join(process.cwd(), 'public', image.url);
                 const filename = path.basename(image.url);
-                const newUrl = `/property-images/${filename}`;
-                const newPath = path.join(process.cwd(), 'public', newUrl);
                 
-                // Ensure property-images directory exists
-                await fs.mkdir(path.join(process.cwd(), 'public', 'property-images'), { recursive: true });
-                
-                // Move the file
-                await fs.rename(oldPath, newPath).catch(() => {
-                    // If move fails, just update the URL (file might not exist)
-                });
+                // Move file using storage abstraction (handles Vercel Blob or local filesystem)
+                const newUrl = await moveFile(image.url, 'property-images', filename);
                 
                 // Update the URL in database
                 await prisma.image.update({
@@ -238,6 +222,17 @@ export async function moveRoomImagesToProperty(imageIds: string[], roomId: strin
                 });
             } catch (error) {
                 console.error('Error moving image file:', error);
+                // If move fails, try to update URL anyway (file might already be moved or not exist)
+                try {
+                    const filename = path.basename(image.url);
+                    const newUrl = `/property-images/${filename}`;
+                    await prisma.image.update({
+                        where: { id: image.id },
+                        data: { url: newUrl }
+                    });
+                } catch (updateError) {
+                    console.error('Error updating image URL:', updateError);
+                }
             }
         }
     }

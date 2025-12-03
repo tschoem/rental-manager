@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import fs from 'fs/promises';
-import path from 'path';
+import { uploadFile } from '@/lib/storage';
 
 export async function POST(request: NextRequest) {
     if (!authOptions) {
@@ -51,17 +50,12 @@ export async function POST(request: NextRequest) {
 
         // Create unique filename
         const filename = `${Date.now()}-${Math.random().toString(36).substring(7)}.${extension}`;
-        const publicDir = path.join(process.cwd(), 'public', folder);
-        const filePath = path.join(publicDir, filename);
 
-        // Ensure directory exists
-        await fs.mkdir(publicDir, { recursive: true });
+        // Upload using storage abstraction (Vercel Blob or local filesystem)
+        const url = await uploadFile(buffer, filename, folder);
 
-        // Write file
-        await fs.writeFile(filePath, buffer);
-
-        // Return the public URL path
-        return NextResponse.json({ url: `/${folder}/${filename}` });
+        // Return the public URL
+        return NextResponse.json({ url });
     } catch (error) {
         console.error('Upload error:', error);
         return NextResponse.json(

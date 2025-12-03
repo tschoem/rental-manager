@@ -1,11 +1,10 @@
-import fs from 'fs/promises';
-import path from 'path';
+import { uploadFile } from './storage';
 
 /**
- * Downloads an image from a URL and saves it to the public folder
+ * Downloads an image from a URL and saves it to storage (Vercel Blob or local filesystem)
  * Returns the public URL path to the saved image
  * @param imageUrl - The URL of the image to download
- * @param folder - The folder name in public/ where to store the image (default: 'owner-images')
+ * @param folder - The folder name where to store the image (default: 'owner-images')
  */
 export async function downloadAndStoreImage(imageUrl: string, folder: string = 'owner-images'): Promise<string> {
     try {
@@ -38,17 +37,12 @@ export async function downloadAndStoreImage(imageUrl: string, folder: string = '
 
         // Create a unique filename
         const filename = `${Date.now()}-${Math.random().toString(36).substring(7)}.${extension}`;
-        const publicDir = path.join(process.cwd(), 'public', folder);
-        const filePath = path.join(publicDir, filename);
 
-        // Ensure directory exists
-        await fs.mkdir(publicDir, { recursive: true });
+        // Upload using storage abstraction (Vercel Blob or local filesystem)
+        const url = await uploadFile(buffer, filename, folder);
 
-        // Write file
-        await fs.writeFile(filePath, buffer);
-
-        // Return the public URL path
-        return `/${folder}/${filename}`;
+        // Return the public URL
+        return url;
     } catch (error) {
         console.error('Error downloading image:', error);
         // If download fails, return the original URL

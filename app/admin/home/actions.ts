@@ -194,11 +194,11 @@ export async function deleteHeroImage(imageId: string) {
 
     if (!image) throw new Error("Image not found");
 
-    // Delete local file
-    if (image.url.startsWith('/')) {
-        const filePath = path.join(process.cwd(), 'public', image.url);
+    // Delete file using storage abstraction (handles Vercel Blob or local filesystem)
+    if (image.url.startsWith('/') || image.url.startsWith('https://')) {
         try {
-            await fs.unlink(filePath);
+            const { deleteFile } = await import('@/lib/storage');
+            await deleteFile(image.url);
         } catch (error) {
             console.error('Failed to delete file:', error);
         }
@@ -222,12 +222,12 @@ export async function deleteHeroImages(imageIds: string[]) {
         where: { id: { in: imageIds } }
     });
 
-    // Delete local files
+    // Delete files using storage abstraction (handles Vercel Blob or local filesystem)
+    const { deleteFile } = await import('@/lib/storage');
     for (const image of images) {
-        if (image.url.startsWith('/')) {
-            const filePath = path.join(process.cwd(), 'public', image.url);
+        if (image.url.startsWith('/') || image.url.startsWith('https://')) {
             try {
-                await fs.unlink(filePath);
+                await deleteFile(image.url);
             } catch (error) {
                 console.error('Failed to delete file:', error);
             }

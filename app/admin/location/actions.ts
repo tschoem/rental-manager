@@ -88,11 +88,11 @@ export async function updateHeroImage(imageUrl: string) {
         storedUrl = await downloadAndStoreImage(imageUrl, 'location-hero-images');
     }
 
-    // Delete old image if it exists and is local
-    if (settings.heroImageUrl && settings.heroImageUrl.startsWith('/') && settings.heroImageUrl !== storedUrl) {
-        const filePath = path.join(process.cwd(), 'public', settings.heroImageUrl);
+    // Delete old image using storage abstraction (handles Vercel Blob or local filesystem)
+    if (settings.heroImageUrl && settings.heroImageUrl !== storedUrl && (settings.heroImageUrl.startsWith('/') || settings.heroImageUrl.startsWith('https://'))) {
         try {
-            await fs.unlink(filePath);
+            const { deleteFile } = await import('@/lib/storage');
+            await deleteFile(settings.heroImageUrl);
         } catch (error) {
             console.error('Failed to delete old hero image:', error);
         }
@@ -121,11 +121,11 @@ export async function updateArea1Image(imageUrl: string) {
         storedUrl = await downloadAndStoreImage(imageUrl, 'location-images');
     }
 
-    // Delete old image if it exists and is local
-    if (settings.area1ImageUrl && settings.area1ImageUrl.startsWith('/') && settings.area1ImageUrl !== storedUrl) {
-        const filePath = path.join(process.cwd(), 'public', settings.area1ImageUrl);
+    // Delete old image using storage abstraction (handles Vercel Blob or local filesystem)
+    if (settings.area1ImageUrl && settings.area1ImageUrl !== storedUrl && (settings.area1ImageUrl.startsWith('/') || settings.area1ImageUrl.startsWith('https://'))) {
         try {
-            await fs.unlink(filePath);
+            const { deleteFile } = await import('@/lib/storage');
+            await deleteFile(settings.area1ImageUrl);
         } catch (error) {
             console.error('Failed to delete old Area 1 image:', error);
         }
@@ -154,11 +154,11 @@ export async function updateArea2Image(imageUrl: string) {
         storedUrl = await downloadAndStoreImage(imageUrl, 'location-images');
     }
 
-    // Delete old image if it exists and is local
-    if (settings.area2ImageUrl && settings.area2ImageUrl.startsWith('/') && settings.area2ImageUrl !== storedUrl) {
-        const filePath = path.join(process.cwd(), 'public', settings.area2ImageUrl);
+    // Delete old image using storage abstraction (handles Vercel Blob or local filesystem)
+    if (settings.area2ImageUrl && settings.area2ImageUrl !== storedUrl && (settings.area2ImageUrl.startsWith('/') || settings.area2ImageUrl.startsWith('https://'))) {
         try {
-            await fs.unlink(filePath);
+            const { deleteFile } = await import('@/lib/storage');
+            await deleteFile(settings.area2ImageUrl);
         } catch (error) {
             console.error('Failed to delete old Area 2 image:', error);
         }

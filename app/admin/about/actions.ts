@@ -458,15 +458,11 @@ export async function deleteOwnerImage(imageId: string, ownerId: string) {
     where: { id: imageId }
   });
 
-  // Delete the file if it's stored locally
-  if (image && image.url.startsWith('/owner-images/')) {
+  // Delete the file using storage abstraction (handles Vercel Blob or local filesystem)
+  if (image && (image.url.startsWith('/') || image.url.startsWith('https://'))) {
     try {
-      const fs = await import('fs/promises');
-      const path = await import('path');
-      const filePath = path.join(process.cwd(), 'public', image.url);
-      await fs.unlink(filePath).catch(() => {
-        // Ignore errors if file doesn't exist
-      });
+      const { deleteFile } = await import('@/lib/storage');
+      await deleteFile(image.url);
     } catch (error) {
       console.error('Error deleting image file:', error);
     }
@@ -496,17 +492,13 @@ export async function deleteOwnerImages(imageIds: string[], ownerId: string) {
     }
   });
 
-  // Delete the files if they're stored locally
-  const fs = await import('fs/promises');
-  const path = await import('path');
+  // Delete the files using storage abstraction (handles Vercel Blob or local filesystem)
+  const { deleteFile } = await import('@/lib/storage');
 
   for (const image of images) {
-    if (image.url.startsWith('/owner-images/')) {
+    if (image.url.startsWith('/') || image.url.startsWith('https://')) {
       try {
-        const filePath = path.join(process.cwd(), 'public', image.url);
-        await fs.unlink(filePath).catch(() => {
-          // Ignore errors if file doesn't exist
-        });
+        await deleteFile(image.url);
       } catch (error) {
         console.error('Error deleting image file:', error);
       }
