@@ -510,35 +510,29 @@ export async function scrapeAirbnbListing(
     // Extract images - if gallery URL provided, use it directly
     const images: string[] = [];
 
-    // If gallery URL is provided, scrape images from it first
+    // If gallery URL is provided, try to extract images from it
+    // Instead of opening a new page (which uses more memory), navigate the current page
     if (galleryUrl) {
       try {
+        progressCallback?.('extracting-images', 'Navigating to gallery...', 35, `Scraping images from provided gallery URL: ${galleryUrl}`);
         console.log('Scraping images from provided gallery URL:', galleryUrl);
-        const galleryPage = await browser.newPage();
 
-        // Apply same memory optimizations to gallery page
-        if (shouldOptimize) {
-          await galleryPage.setRequestInterception(true);
-          galleryPage.on('request', (req: any) => {
-            const resourceType = req.resourceType();
-            if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
-              req.abort();
-            } else {
-              req.continue();
-            }
-          });
+        // Navigate current page to gallery URL to save memory (reuse existing page)
+        // Close any modals first
+        try {
+          await page.keyboard.press('Escape'); // Close any open modals
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (e) {
+          // Ignore if no modal
         }
 
-        await galleryPage.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-        await galleryPage.setViewport({ width: 1920, height: 1080 });
-
-        // Use domcontentloaded for faster loading
-        await galleryPage.goto(galleryUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for gallery to load
+        // Navigate to gallery URL on the same page
+        await page.goto(galleryUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for gallery to load
 
         // Helper function to extract images from page
         const extractImagesFromPage = async (): Promise<string[]> => {
-          return await galleryPage.evaluate(() => {
+          return await page.evaluate(() => {
             // @ts-nocheck
             const imgs: string[] = [];
             const uniqueUrls = new Set<string>();
@@ -615,11 +609,11 @@ export async function scrapeAirbnbListing(
           previousCount = currentCount;
 
           // Navigate to next image using arrow key
-          await galleryPage.keyboard.press('ArrowRight');
+          await page.keyboard.press('ArrowRight');
           await new Promise(resolve => setTimeout(resolve, 500));
 
           // Also try scrolling as backup
-          await galleryPage.evaluate(() => {
+          await page.evaluate(() => {
             window.scrollBy(0, 500);
             const scrollableContainers = document.querySelectorAll('div, section');
             scrollableContainers.forEach((container: Element) => {
@@ -637,7 +631,9 @@ export async function scrapeAirbnbListing(
         progressCallback?.('extracting-images', `Found ${images.length} images from gallery`, 45, `Found ${images.length} images from gallery URL`);
         console.log(`Found ${images.length} images from gallery URL`);
 
-        await galleryPage.close();
+        // Navigate back to main listing page for fallback image extraction
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await new Promise(resolve => setTimeout(resolve, 2000));
       } catch (error) {
         // Don't fail the entire import if gallery scraping fails
         progressCallback?.('extracting-images', 'Gallery scraping failed, using fallback...', 35, `Error scraping gallery URL: ${error instanceof Error ? error.message : String(error)}`);
