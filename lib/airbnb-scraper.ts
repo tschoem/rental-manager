@@ -31,7 +31,7 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
       try {
         browser = await puppeteerCore.launch({
           args: chromium.args,
-          defaultViewport: chromium.defaultViewport,
+          defaultViewport: { width: 1920, height: 1080 },
           executablePath: await chromium.executablePath(),
           headless: chromium.headless,
         });
