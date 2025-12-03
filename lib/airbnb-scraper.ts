@@ -184,7 +184,8 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
             throw new Error(`Invalid executable name: ${chromiumExecutable || 'undefined'}. Expected chromium. Available files: ${files.join(', ')}`);
           }
 
-          const executablePath = join(binPath, chromiumExecutable);
+          // Assign to the outer variable, do NOT use 'const' here as it shadows the variable
+          executablePath = join(binPath, chromiumExecutable);
 
           // If we found a .br file, decompress it
           if (chromiumBrFile) {
