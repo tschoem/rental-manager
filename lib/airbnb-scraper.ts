@@ -272,18 +272,23 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
 
     const page = await browser.newPage();
 
-    // Optimize for low memory environments (Vercel)
-    // Block images, fonts, and stylesheets to save resources
-    await page.setRequestInterception(true);
-    page.on('request', (req: any) => {
-      const resourceType = req.resourceType();
-      // Don't block 'other' as it may contain critical scripts/data
-      if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
-        req.abort();
-      } else {
-        req.continue();
-      }
-    });
+    // Optimize for low memory environments (Vercel) OR if simulating locally
+    const shouldOptimize = isVercel || process.env.SIMULATE_VERCEL === 'true';
+
+    if (shouldOptimize) {
+      console.log('Applying memory optimizations (request interception)...');
+      // Block images, fonts, and stylesheets to save resources
+      await page.setRequestInterception(true);
+      page.on('request', (req: any) => {
+        const resourceType = req.resourceType();
+        // Only block images and media. Allow stylesheets/fonts as blocking them can break the app.
+        if (['image', 'media'].includes(resourceType)) {
+          req.abort();
+        } else {
+          req.continue();
+        }
+      });
+    }
 
     // Set user agent
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
@@ -642,12 +647,12 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
           }
 
           // Now scroll and extract all images with improved logic
-          const galleryImages = await page.evaluate(async () => {
+          const galleryImages = await page.evaluate(() => {
             const imgs: string[] = [];
             const uniqueUrls = new Set<string>();
 
             // Helper function to extract image URL from various sources
-            const extractImageUrl = (element: Element): string | null => {
+            function extractImageUrl(element: Element): string | null {
               // Try src attribute
               let src = (element as HTMLImageElement).src || element.getAttribute('src');
               if (src && src.length > 50 && !src.includes('icon') && !src.includes('logo') && !src.includes('avatar')) {
@@ -676,7 +681,7 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
               }
 
               return null;
-            };
+            }
 
             // Scroll loop with improved navigation
             let previousCount = 0;
@@ -741,7 +746,8 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
               if (i % 3 === 0) {
                 // Press right arrow every 3 scrolls to navigate through images
                 document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
-                await new Promise(resolve => setTimeout(resolve, 200));
+                // Small delay using setTimeout (no await in browser context)
+                setTimeout(() => { }, 200);
               }
 
               // 3. Scroll window as backup
@@ -753,8 +759,8 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
                 (lastImg as HTMLElement).scrollIntoView({ behavior: 'auto', block: 'nearest' });
               }
 
-              // Wait for images to load
-              await new Promise(resolve => setTimeout(resolve, 1000));
+              // Wait for images to load (using setTimeout, no await in browser context)
+              setTimeout(() => { }, 1000);
             }
 
             console.log(`Final image count: ${uniqueUrls.size}`);
