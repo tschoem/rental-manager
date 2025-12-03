@@ -515,6 +515,16 @@ export async function scrapeAirbnbListing(
 
     console.log('Description length:', description.length);
 
+    // Wait for page to be stable after description extraction
+    // This is critical to avoid "Requesting main frame too early!" errors
+    console.log('Waiting for page to stabilize after description extraction...');
+    try {
+      await page.waitForFunction(() => document.readyState === 'complete', { timeout: 5000 });
+    } catch (e) {
+      console.log('Page ready state check timed out, waiting anyway...');
+    }
+    await new Promise(resolve => setTimeout(resolve, 2000)); // Additional wait for stability
+
     // Extract images - if gallery URL provided, use it directly
     // Clear images array before starting (in case of retry)
     images.length = 0;
@@ -526,17 +536,38 @@ export async function scrapeAirbnbListing(
         progressCallback?.('extracting-images', 'Navigating to gallery...', 35, `Scraping images from provided gallery URL: ${galleryUrl}`);
         console.log('Scraping images from provided gallery URL:', galleryUrl);
 
-        // Navigate current page to gallery URL to save memory (reuse existing page)
+        // Ensure page is ready before navigation
+        try {
+          // Wait for any pending operations to complete
+          await page.waitForFunction(() => {
+            return document.readyState === 'complete' &&
+              !document.querySelector('[aria-busy="true"]') &&
+              document.body !== null;
+          }, { timeout: 5000 });
+        } catch (e) {
+          console.log('Page readiness check timed out, continuing...');
+        }
+
         // Close any modals first
         try {
           await page.keyboard.press('Escape'); // Close any open modals
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (e) {
           // Ignore if no modal
         }
 
         // Navigate to gallery URL on the same page
+        // Use a longer wait to ensure page is ready
         await page.goto(galleryUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+        // Wait for page to be fully ready after navigation
+        try {
+          await page.waitForSelector('body', { timeout: 10000 });
+          await page.waitForFunction(() => document.readyState === 'complete', { timeout: 10000 });
+        } catch (e) {
+          console.log('Page readiness check after navigation timed out, continuing...');
+        }
+
         await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for gallery to load
 
         // Helper function to extract images from page
@@ -656,6 +687,14 @@ export async function scrapeAirbnbListing(
       try {
         console.log('Opening photo gallery...');
 
+        // Ensure page is ready before trying to open gallery
+        try {
+          await page.waitForFunction(() => document.readyState === 'complete', { timeout: 5000 });
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Additional stability wait
+        } catch (e) {
+          console.log('Page readiness check timed out, continuing...');
+        }
+
         // Try multiple selectors to find and click the main image/gallery button
         const clickSelectors = [
           'button[aria-label*="Show all photos"]',
@@ -671,16 +710,69 @@ export async function scrapeAirbnbListing(
         let galleryOpened = false;
         for (const selector of clickSelectors) {
           try {
-            const element = await page.$(selector);
+            // Wait for selector with retry logic
+            let element = null;
+            let retries = 3;
+            while (retries > 0 && !element) {
+              try {
+                element = await page.$(selector);
+                if (!element) {
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                  retries--;
+                }
+              } catch (frameError: any) {
+                if (frameError?.message?.includes('main frame') || frameError?.message?.includes('frame')) {
+                  console.log(`Frame not ready for selector ${selector}, waiting...`);
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                  retries--;
+                } else {
+                  throw frameError;
+                }
+              }
+            }
+
             if (element) {
               console.log(`Trying to click gallery with selector: ${selector}`);
-              await element.click();
-              await new Promise(resolve => setTimeout(resolve, 3000)); // Wait longer for gallery to open
+              try {
+                await element.click();
+                await new Promise(resolve => setTimeout(resolve, 3000)); // Wait longer for gallery to open
+              } catch (clickError: any) {
+                if (clickError?.message?.includes('main frame') || clickError?.message?.includes('frame')) {
+                  console.log(`Frame error when clicking ${selector}, waiting and retrying...`);
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                  try {
+                    await element.click();
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                  } catch (retryError) {
+                    console.log(`Retry click also failed for ${selector}`);
+                    continue;
+                  }
+                } else {
+                  throw clickError;
+                }
+              }
 
-              // Check if gallery modal is open
-              const modalOpen = await page.evaluate(() => {
-                return !!document.querySelector('[role="dialog"], [data-testid*="modal"], [class*="modal"]');
-              });
+              // Check if gallery modal is open (with retry for frame errors)
+              let modalOpen = false;
+              try {
+                modalOpen = await page.evaluate(() => {
+                  return !!document.querySelector('[role="dialog"], [data-testid*="modal"], [class*="modal"]');
+                });
+              } catch (evalError: any) {
+                if (evalError?.message?.includes('main frame') || evalError?.message?.includes('frame')) {
+                  console.log('Frame error checking modal, waiting and retrying...');
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                  try {
+                    modalOpen = await page.evaluate(() => {
+                      return !!document.querySelector('[role="dialog"], [data-testid*="modal"], [class*="modal"]');
+                    });
+                  } catch (retryError) {
+                    console.log('Retry modal check also failed');
+                  }
+                } else {
+                  throw evalError;
+                }
+              }
 
               if (modalOpen) {
                 console.log('Gallery modal opened successfully');
@@ -688,8 +780,45 @@ export async function scrapeAirbnbListing(
                 break;
               }
             }
-          } catch (e) {
-            console.log(`Selector ${selector} failed:`, e);
+          } catch (e: any) {
+            if (e?.message?.includes('main frame') || e?.message?.includes('frame')) {
+              console.log(`Selector ${selector} failed with frame error: ${e.message}, waiting and retrying...`);
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              // Try one more time
+              try {
+                const retryElement = await page.$(selector);
+                if (retryElement) {
+                  await retryElement.click();
+                  await new Promise(resolve => setTimeout(resolve, 3000));
+                  // Check modal again with retry
+                  let retryModalOpen = false;
+                  try {
+                    retryModalOpen = await page.evaluate(() => {
+                      return !!document.querySelector('[role="dialog"], [data-testid*="modal"], [class*="modal"]');
+                    });
+                  } catch (retryEvalError: any) {
+                    if (retryEvalError?.message?.includes('main frame') || retryEvalError?.message?.includes('frame')) {
+                      await new Promise(resolve => setTimeout(resolve, 2000));
+                      try {
+                        retryModalOpen = await page.evaluate(() => {
+                          return !!document.querySelector('[role="dialog"], [data-testid*="modal"], [class*="modal"]');
+                        });
+                      } catch (finalError) {
+                        // Ignore
+                      }
+                    }
+                  }
+                  if (retryModalOpen) {
+                    galleryOpened = true;
+                    break;
+                  }
+                }
+              } catch (retryError) {
+                console.log(`Retry for ${selector} also failed`);
+              }
+            } else {
+              console.log(`Selector ${selector} failed:`, e);
+            }
             continue;
           }
         }
