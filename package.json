@@ -24,11 +24,11 @@
   ],
   "scripts": {
     "dev": "tsx scripts/update-schema-provider.ts && rm -rf generated && prisma generate && tsx scripts/copy-prisma-engine.ts && next dev",
-    "build": "tsx scripts/update-schema-provider.ts && rm -rf generated && prisma generate && tsx scripts/copy-prisma-engine.ts && next build",
+    "build": "tsx scripts/update-schema-provider.ts && rm -rf generated && prisma generate && prisma db push --skip-generate && tsx scripts/copy-prisma-engine.ts && next build",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "tsx scripts/update-schema-provider.ts && rm -rf generated && prisma generate && tsx scripts/copy-prisma-engine.ts",
-    "vercel-build": "tsx scripts/update-schema-provider.ts && rm -rf generated && prisma generate && tsx scripts/copy-prisma-engine.ts && next build",
+    "vercel-build": "tsx scripts/update-schema-provider.ts && rm -rf generated && prisma generate && prisma db push --skip-generate && tsx scripts/copy-prisma-engine.ts && next build",
     "prisma:generate": "tsx scripts/update-schema-provider.ts && rm -rf generated && prisma generate",
     "setup": "tsx scripts/setup.ts",
     "setup-admin": "tsx scripts/setup-admin.ts",

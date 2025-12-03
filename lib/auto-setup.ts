@@ -113,13 +113,30 @@ export async function autoSetupDatabase(): Promise<{ success: boolean; message?:
     return { success: false, message: 'DATABASE_URL is not set' };
   }
 
-  // Don't auto-setup SQLite on Vercel - it's not recommended
   const isSQLite = databaseUrl.startsWith('file:');
+  const isPostgreSQL = databaseUrl.startsWith('postgresql://') || databaseUrl.startsWith('postgres://');
   const isVercel = !!(process.env.VERCEL || process.env.VERCEL_URL);
+
+  // Don't auto-setup SQLite on Vercel - it's not recommended
   if (isSQLite && isVercel) {
     return {
       success: false,
       message: 'SQLite is not recommended on Vercel. Please use PostgreSQL instead. See setup page for details.'
+    };
+  }
+
+  // For PostgreSQL on Vercel, schema should be created during build via migrations
+  // Skip runtime auto-setup since Prisma CLI isn't available in serverless functions
+  if (isPostgreSQL && isVercel) {
+    // Check if database is already initialized
+    const initialized = await isDatabaseInitialized();
+    if (initialized) {
+      return { success: true, message: 'Database already initialized' };
+    }
+    // If not initialized, return a helpful message
+    return {
+      success: false,
+      message: 'Database schema not found. Please ensure migrations are run during build. Add "prisma migrate deploy" or "prisma db push" to your build script.'
     };
   }
 
