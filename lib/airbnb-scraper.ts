@@ -31,6 +31,14 @@ export async function scrapeAirbnbListing(
 ): Promise<AirbnbListingData> {
   let browser;
 
+  // Declare variables outside try block so they're accessible in catch
+  let title = 'Imported Room';
+  let description = 'Imported from Airbnb';
+  const images: string[] = [];
+  const amenities: string[] = [];
+  let price: number | null = null;
+  let capacity: number | null = null;
+
   try {
     progressCallback?.('initializing', 'Launching browser...', 5, 'Launching browser...');
     console.log('Launching browser...');
@@ -320,7 +328,7 @@ export async function scrapeAirbnbListing(
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     // Extract title
-    const title = await page.evaluate(() => {
+    title = await page.evaluate(() => {
       const h1 = document.querySelector('h1');
       const ogTitle = document.querySelector('meta[property="og:title"]');
       return h1?.textContent?.trim() || ogTitle?.getAttribute('content') || 'Imported Room';
@@ -329,7 +337,7 @@ export async function scrapeAirbnbListing(
     console.log('Title:', title);
 
     // Click "Show more" button for full description
-    let description = '';
+    description = '';
     try {
       console.log('Looking for "Show more" button...');
 
@@ -508,7 +516,8 @@ export async function scrapeAirbnbListing(
     console.log('Description length:', description.length);
 
     // Extract images - if gallery URL provided, use it directly
-    const images: string[] = [];
+    // Clear images array before starting (in case of retry)
+    images.length = 0;
 
     // If gallery URL is provided, try to extract images from it
     // Instead of opening a new page (which uses more memory), navigate the current page
@@ -950,7 +959,8 @@ export async function scrapeAirbnbListing(
     console.log(`Total images found (gallery + page): ${images.length}`);
 
     // Extract amenities from the dedicated /amenities page
-    const amenities: string[] = [];
+    // Clear amenities array before starting (in case of retry)
+    amenities.length = 0;
     try {
       progressCallback?.('extracting-amenities', 'Extracting amenities...', 80, 'Extracting amenities from /amenities page...');
       console.log('Extracting amenities from /amenities page...');
@@ -959,9 +969,19 @@ export async function scrapeAirbnbListing(
       const amenitiesUrl = url.endsWith('/') ? `${url}amenities` : `${url}/amenities`;
       console.log('Navigating to:', amenitiesUrl);
 
-      // Navigate current page to amenities URL
-      await page.goto(amenitiesUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-      await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for page to load
+      // Check if page is still valid before navigating
+      try {
+        // Navigate current page to amenities URL
+        await page.goto(amenitiesUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for page to load
+      } catch (navError: any) {
+        // If navigation fails (page detached, etc.), skip amenities extraction
+        if (navError?.message?.includes('detached') || navError?.message?.includes('frame')) {
+          console.log('Page detached during navigation, skipping amenities extraction');
+          throw navError; // Re-throw to trigger fallback
+        }
+        throw navError;
+      }
 
       // Extract amenities from the amenities page
       const allAmenities = await page.evaluate(() => {
@@ -1090,13 +1110,32 @@ export async function scrapeAirbnbListing(
       progressCallback?.('extracting-amenities', `Found ${amenities.length} amenities`, 85, `Found ${amenities.length} amenities`);
       console.log('Found amenities:', amenities.length);
 
-      // Navigate back to main listing page
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Navigate back to main listing page before continuing
+      try {
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for page to stabilize
+      } catch (navBackError) {
+        console.log('Failed to navigate back to main page, but continuing...', navBackError);
+        // Try to continue anyway - page might still be usable
+      }
     } catch (error) {
       progressCallback?.('extracting-amenities', 'Amenities extraction failed, continuing...', 80, `Could not extract amenities: ${error instanceof Error ? error.message : String(error)}`);
       console.log('Could not extract amenities:', error);
-      // Try to extract amenities from the main page as fallback
+
+      // Ensure we're back on the main page before trying fallback
+      try {
+        // Check if page is still valid
+        const pageUrl = page.url();
+        if (!pageUrl.includes(url.split('/').pop() || '')) {
+          console.log('Page is not on main listing, navigating back...');
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      } catch (navError) {
+        console.log('Could not navigate back to main page, skipping amenities fallback');
+      }
+
+      // Try to extract amenities from the main page as fallback (only if page is valid)
       try {
         const mainPageAmenities = await page.evaluate(() => {
           const amenitiesList: string[] = [];
@@ -1125,44 +1164,65 @@ export async function scrapeAirbnbListing(
         amenities.push(...mainPageAmenities);
         console.log(`Found ${mainPageAmenities.length} amenities from main page fallback`);
       } catch (fallbackError) {
-        console.log('Fallback amenities extraction also failed');
+        console.log('Fallback amenities extraction also failed - continuing without amenities');
+        // Don't throw - amenities are optional, continue with import
       }
     }
 
-    // Extract price
-    let price: number | null = null;
-    const priceText = await page.evaluate(() => {
-      const priceElements = Array.from(document.querySelectorAll('span, div'));
-      for (const elem of priceElements) {
-        const text = elem.textContent || '';
-        if ((text.includes('€') || text.includes('$')) && text.includes('night')) {
-          return text;
-        }
+    // Extract price and capacity - ensure we're on the main page first
+    try {
+      // Make sure we're on the main listing page before extracting price/capacity
+      const currentUrl = page.url();
+      if (!currentUrl.includes(url.split('/').pop() || '') || currentUrl.includes('/amenities')) {
+        console.log('Not on main page, navigating back for price/capacity extraction...');
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
-      return '';
-    });
 
-    const priceMatch = priceText.match(/[€$](\d+)/);
-    if (priceMatch) {
-      price = parseInt(priceMatch[1]);
-    }
+      // Extract price
+      try {
+        const priceText = await page.evaluate(() => {
+          const priceElements = Array.from(document.querySelectorAll('span, div'));
+          for (const elem of priceElements) {
+            const text = elem.textContent || '';
+            if ((text.includes('€') || text.includes('$')) && text.includes('night')) {
+              return text;
+            }
+          }
+          return '';
+        });
 
-    // Extract capacity
-    let capacity: number | null = null;
-    const capacityText = await page.evaluate(() => {
-      const elements = Array.from(document.querySelectorAll('li, span, div'));
-      for (const elem of elements) {
-        const text = elem.textContent || '';
-        if (text.match(/\d+\s*guest/i)) {
-          return text;
+        const priceMatch = priceText.match(/[€$](\d+)/);
+        if (priceMatch) {
+          price = parseInt(priceMatch[1]);
         }
+      } catch (priceError) {
+        console.log('Price extraction failed:', priceError);
       }
-      return '';
-    });
 
-    const guestMatch = capacityText.match(/(\d+)\s*guest/i);
-    if (guestMatch) {
-      capacity = parseInt(guestMatch[1]);
+      // Extract capacity
+      try {
+        const capacityText = await page.evaluate(() => {
+          const elements = Array.from(document.querySelectorAll('li, span, div'));
+          for (const elem of elements) {
+            const text = elem.textContent || '';
+            if (text.match(/\d+\s*guest/i)) {
+              return text;
+            }
+          }
+          return '';
+        });
+
+        const guestMatch = capacityText.match(/(\d+)\s*guest/i);
+        if (guestMatch) {
+          capacity = parseInt(guestMatch[1]);
+        }
+      } catch (capacityError) {
+        console.log('Capacity extraction failed:', capacityError);
+      }
+    } catch (extractError) {
+      console.log('Price/capacity extraction failed, continuing with defaults:', extractError);
+      // Don't throw - price and capacity are optional
     }
 
     console.log('Scraping complete:', {
@@ -1185,10 +1245,27 @@ export async function scrapeAirbnbListing(
 
   } catch (error) {
     console.error('Scraping error:', error);
+    // Only throw if we don't have any data at all
+    // If we have at least title and some images, return what we have
+    if (title && images.length > 0) {
+      console.log('Partial scrape successful, returning available data');
+      return {
+        title: title || 'Imported Room',
+        description: description || 'Imported from Airbnb',
+        price: price || null,
+        capacity: capacity || null,
+        amenities: amenities || [],
+        images: images || [],
+      };
+    }
     throw new Error('Failed to scrape Airbnb listing. The page may have changed or be inaccessible.');
   } finally {
     if (browser) {
-      await browser.close();
+      try {
+        await browser.close();
+      } catch (closeError) {
+        console.log('Error closing browser:', closeError);
+      }
     }
   }
 }
