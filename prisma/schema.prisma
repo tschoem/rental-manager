@@ -304,3 +304,18 @@ model Review {
   roomId      String
   room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
 }
+
+model ImportProgress {
+  id          String   @id @default(cuid())
+  propertyId  String
+  stage       String   // 'initializing', 'scraping', 'extracting-images', etc.
+  message     String
+  progress    Int      // 0-100
+  logs        String?  // JSON array of log messages
+  error       String?
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([propertyId, createdAt])
+}

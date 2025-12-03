@@ -15,16 +15,24 @@ export interface AirbnbListingData {
   images: string[];
 }
 
+// Progress callback type
+export type ProgressCallback = (stage: string, message: string, progress: number, log?: string) => void;
+
 // Detect if we're running on Vercel or similar serverless environment
 const isVercel = !!(process.env.VERCEL || process.env.VERCEL_URL || process.env.AWS_LAMBDA_FUNCTION_NAME);
 
 // Cache for Chromium executable path (to avoid re-downloading)
 let cachedExecutablePath: string | undefined = undefined;
 
-export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Promise<AirbnbListingData> {
+export async function scrapeAirbnbListing(
+  url: string,
+  galleryUrl?: string,
+  progressCallback?: ProgressCallback
+): Promise<AirbnbListingData> {
   let browser;
 
   try {
+    progressCallback?.('initializing', 'Launching browser...', 5, 'Launching browser...');
     console.log('Launching browser...');
     console.log(`Environment: ${isVercel ? 'Vercel/Serverless' : 'Local'}`);
 
@@ -519,18 +527,19 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
         let noChangeCount = 0;
         const allGalleryImages = new Set<string>();
 
-        for (let i = 0; i < 150; i++) {
+        for (let i = 0; i < 50; i++) { // Reduced from 150 to save memory
           // Extract images from current view
           const currentImages = await extractImagesFromPage();
           currentImages.forEach(img => allGalleryImages.add(img));
 
           const currentCount = allGalleryImages.size;
+          progressCallback?.('extracting-images', `Found ${currentCount} images so far...`, 35 + Math.min(i * 2, 10), `Gallery navigation ${i + 1}: Found ${currentCount} unique images`);
           console.log(`Gallery navigation ${i + 1}: Found ${currentCount} unique images`);
 
           if (currentCount === previousCount) {
             noChangeCount++;
-            if (noChangeCount >= 5) {
-              console.log('No new images found for 5 navigations, stopping');
+            if (noChangeCount >= 3) { // Reduced from 5 to stop sooner
+              console.log('No new images found for 3 navigations, stopping');
               break;
             }
           } else {
@@ -559,10 +568,13 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
         }
 
         Array.from(allGalleryImages).forEach(img => images.push(img));
+        progressCallback?.('extracting-images', `Found ${images.length} images from gallery`, 45, `Found ${images.length} images from gallery URL`);
         console.log(`Found ${images.length} images from gallery URL`);
 
         await galleryPage.close();
       } catch (error) {
+        // Don't fail the entire import if gallery scraping fails
+        progressCallback?.('extracting-images', 'Gallery scraping failed, using fallback...', 35, `Error scraping gallery URL: ${error instanceof Error ? error.message : String(error)}`);
         console.log('Error scraping gallery URL:', error);
         // Continue with regular extraction as fallback
       }

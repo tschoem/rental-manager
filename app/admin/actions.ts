@@ -5,8 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import axios from 'axios';
-import * as cheerio from 'cheerio';
+import { updateImportProgress, markImportComplete } from '@/lib/import-progress';
 
 export async function toggleSinglePropertyMode(enabled: boolean) {
   const settings = await prisma.siteSettings.findFirst();
@@ -33,8 +32,7 @@ export async function createProperty(formData: FormData) {
     throw new Error("Unauthorized");
   }
 
-  // @ts-ignore
-  const userId = session.user.id;
+  const userId = (session.user as { id?: string }).id;
 
   if (!userId) {
     const user = await prisma.user.findUnique({
@@ -121,17 +119,25 @@ export async function importListing(formData: FormData) {
 
     // Main import logic
     try {
+      await updateImportProgress(propertyId, 'initializing', 'Starting browser and loading page...', 5, '[IMPORT] Starting import');
+
       console.log(`[IMPORT] Starting import for property ${propertyId}`);
       console.log(`[IMPORT] URL: ${url}`);
       console.log(`[IMPORT] Gallery URL: ${galleryUrl || 'none'}`);
       console.log(`[IMPORT] iCal URL: ${iCalUrl || 'none'}`);
 
       // Use enhanced scraper
+      await updateImportProgress(propertyId, 'initializing', 'Loading scraper module...', 10, '[IMPORT] Loading scraper module...');
       console.log(`[IMPORT] Loading scraper module...`);
       const { scrapeAirbnbListing } = await import('@/lib/airbnb-scraper');
 
+      await updateImportProgress(propertyId, 'scraping', 'Extracting title, description, price, and capacity...', 20, '[IMPORT] Starting scrape...');
       console.log(`[IMPORT] Starting scrape...`);
-      const listingData = await scrapeAirbnbListing(url, galleryUrl || undefined);
+      const listingData = await scrapeAirbnbListing(url, galleryUrl || undefined, (stage, message, progress, log) => {
+        updateImportProgress(propertyId, stage, message, progress, log);
+      });
+
+      await updateImportProgress(propertyId, 'scraping', 'Scrape completed', 40, `[IMPORT] Scrape completed: ${listingData.images.length} images, ${listingData.amenities.length} amenities`);
       console.log(`[IMPORT] Scrape completed:`, {
         title: listingData.title,
         imagesCount: listingData.images.length,
@@ -141,6 +147,7 @@ export async function importListing(formData: FormData) {
       });
 
       // Get the maximum order value for rooms in this property
+      await updateImportProgress(propertyId, 'saving', 'Preparing to save room...', 50, '[IMPORT] Getting max order for property');
       console.log(`[IMPORT] Getting max order for property ${propertyId}...`);
       const maxOrderRoom = await prisma.room.findFirst({
         where: { propertyId },
@@ -152,6 +159,7 @@ export async function importListing(formData: FormData) {
       console.log(`[IMPORT] New room order: ${newOrder}`);
 
       // Create room with all scraped data
+      await updateImportProgress(propertyId, 'saving', 'Creating room record...', 60, '[IMPORT] Creating room record...');
       console.log(`[IMPORT] Creating room record...`);
       const room = await prisma.room.create({
         data: {
@@ -166,6 +174,7 @@ export async function importListing(formData: FormData) {
           order: newOrder,
         }
       });
+      await updateImportProgress(propertyId, 'saving', `Room created: ${room.id}`, 65, `[IMPORT] Room created with ID: ${room.id}`);
       console.log(`[IMPORT] Room created with ID: ${room.id}`);
 
       // Create images at room level (they can be moved to property level later if needed)
@@ -254,6 +263,9 @@ export async function importListing(formData: FormData) {
       }
 
       console.log(`[IMPORT] Import completed successfully for room ${room.id}`);
+
+      await updateImportProgress(propertyId, 'complete', 'Import completed successfully!', 100, `[IMPORT] Import completed successfully for room ${room.id}`);
+      await markImportComplete(propertyId);
     } catch (error) {
       // Enhanced error logging
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -292,7 +304,7 @@ export async function importListing(formData: FormData) {
 
       // Throw error with detailed message - Next.js server actions will surface this
       const detailedError = new Error(userFriendlyMessage);
-      (detailedError as any).cause = error; // Preserve original error
+      (detailedError as Error & { cause?: unknown }).cause = error; // Preserve original error
       throw detailedError;
     }
 
@@ -305,7 +317,7 @@ export async function importListing(formData: FormData) {
   } catch (outerError) {
     // Check if this is a Next.js redirect (expected behavior, not an error)
     if (outerError && typeof outerError === 'object' && 'digest' in outerError) {
-      const digest = (outerError as any).digest;
+      const digest = (outerError as { digest?: string }).digest;
       if (digest && typeof digest === 'string' && digest.includes('NEXT_REDIRECT')) {
         // This is a redirect, not an error - rethrow it so Next.js handles it
         throw outerError;
