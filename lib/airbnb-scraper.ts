@@ -1,6 +1,6 @@
 // Use puppeteer-core for serverless, puppeteer for local dev
 import puppeteerCore from 'puppeteer-core';
-import chromium from '@sparticuz/chromium';
+import chromium from '@sparticuz/chromium-min';
 
 // Dynamic import for puppeteer (only used locally)
 // Using 'any' type to avoid TypeScript issues with dynamic imports
@@ -26,8 +26,9 @@ export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Pro
     console.log(`Environment: ${isVercel ? 'Vercel/Serverless' : 'Local'}`);
 
     if (isVercel) {
-      // Use @sparticuz/chromium for Vercel/serverless environments
-      console.log('Using @sparticuz/chromium for serverless environment');
+      // Use @sparticuz/chromium-min for Vercel/serverless environments
+      // chromium-min is smaller and designed to fit within Vercel's 250MB function limit
+      console.log('Using @sparticuz/chromium-min for serverless environment');
 
       try {
         // Get the Chromium executable path
