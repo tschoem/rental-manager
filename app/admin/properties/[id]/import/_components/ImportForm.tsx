@@ -136,9 +136,32 @@ export default function ImportForm({ propertyId, propertyName }: ImportFormProps
                 clearInterval(progressIntervalRef.current);
                 progressIntervalRef.current = null;
             }
-            console.error(e);
-            setError(e.message || "Failed to import. Check the URL or try again.");
-            setProgress({ stage: 'error', message: e.message || 'Import failed', progress: 0 });
+            console.error('Import error:', e);
+            
+            // Extract error message - could be from server action or network error
+            let errorMessage = "Failed to import. ";
+            
+            if (e?.message) {
+                errorMessage += e.message;
+            } else if (e?.error) {
+                errorMessage += e.error;
+            } else if (typeof e === 'string') {
+                errorMessage += e;
+            } else {
+                errorMessage += "Check the URL or try again. See Vercel logs for details.";
+            }
+            
+            // Add helpful hints based on error type
+            if (errorMessage.includes('Puppeteer') || errorMessage.includes('browser') || errorMessage.includes('Chrome')) {
+                errorMessage += "\n\n💡 Tip: Puppeteer may need special configuration on Vercel. See VERCEL_TROUBLESHOOTING.md";
+            } else if (errorMessage.includes('BLOB') || errorMessage.includes('storage') || errorMessage.includes('ENOENT')) {
+                errorMessage += "\n\n💡 Tip: Ensure BLOB_READ_WRITE_TOKEN is set in Vercel environment variables.";
+            } else if (errorMessage.includes('timeout') || errorMessage.includes('TIMEOUT')) {
+                errorMessage += "\n\n💡 Tip: The request timed out. Try again or provide a gallery URL to speed up the process.";
+            }
+            
+            setError(errorMessage);
+            setProgress({ stage: 'error', message: errorMessage.split('\n')[0], progress: 0 });
             setLoading(false);
         }
     }
@@ -298,8 +321,29 @@ export default function ImportForm({ propertyId, propertyName }: ImportFormProps
                 )}
 
                 {error && (
-                    <div style={{ padding: '1rem', background: '#fee', color: '#c00', borderRadius: '8px', fontSize: '0.875rem' }}>
-                        {error}
+                    <div style={{ 
+                        padding: '1rem', 
+                        background: '#fee', 
+                        color: '#c00', 
+                        borderRadius: '8px', 
+                        fontSize: '0.875rem',
+                        whiteSpace: 'pre-wrap',
+                        lineHeight: '1.6'
+                    }}>
+                        <strong>Error:</strong> {error}
+                        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #fcc', fontSize: '0.8rem' }}>
+                            <strong>How to see full error details:</strong>
+                            <ol style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>
+                                <li>Go to Vercel Dashboard → Your Project → Deployments</li>
+                                <li>Click the latest deployment → Functions tab</li>
+                                <li>Click on the function with errors</li>
+                                <li>Scroll to Logs section</li>
+                                <li>Look for entries prefixed with <code>[IMPORT]</code></li>
+                            </ol>
+                            <p style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#800' }}>
+                                See VERCEL_TROUBLESHOOTING.md for more help.
+                            </p>
+                        </div>
                     </div>
                 )}
 

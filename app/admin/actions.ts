@@ -98,12 +98,34 @@ export async function importListing(formData: FormData) {
         throw new Error("Invalid Airbnb URL");
     }
 
+    // Check if we're on Vercel and warn about Puppeteer limitations
+    const isVercel = !!(process.env.VERCEL || process.env.VERCEL_URL);
+    if (isVercel) {
+        console.log("⚠️ Running on Vercel - Puppeteer may have limitations");
+    }
+
     try {
+        console.log(`[IMPORT] Starting import for property ${propertyId}`);
+        console.log(`[IMPORT] URL: ${url}`);
+        console.log(`[IMPORT] Gallery URL: ${galleryUrl || 'none'}`);
+        console.log(`[IMPORT] iCal URL: ${iCalUrl || 'none'}`);
+
         // Use enhanced scraper
+        console.log(`[IMPORT] Loading scraper module...`);
         const { scrapeAirbnbListing } = await import('@/lib/airbnb-scraper');
+        
+        console.log(`[IMPORT] Starting scrape...`);
         const listingData = await scrapeAirbnbListing(url, galleryUrl || undefined);
+        console.log(`[IMPORT] Scrape completed:`, {
+            title: listingData.title,
+            imagesCount: listingData.images.length,
+            amenitiesCount: listingData.amenities.length,
+            price: listingData.price,
+            capacity: listingData.capacity
+        });
 
         // Get the maximum order value for rooms in this property
+        console.log(`[IMPORT] Getting max order for property ${propertyId}...`);
         const maxOrderRoom = await prisma.room.findFirst({
             where: { propertyId },
             orderBy: { order: 'desc' },
@@ -111,8 +133,10 @@ export async function importListing(formData: FormData) {
         });
 
         const newOrder = maxOrderRoom ? maxOrderRoom.order + 1 : 0;
+        console.log(`[IMPORT] New room order: ${newOrder}`);
 
         // Create room with all scraped data
+        console.log(`[IMPORT] Creating room record...`);
         const room = await prisma.room.create({
             data: {
                 name: listingData.title,
@@ -126,9 +150,12 @@ export async function importListing(formData: FormData) {
                 order: newOrder,
             }
         });
+        console.log(`[IMPORT] Room created with ID: ${room.id}`);
 
         // Create images at room level (they can be moved to property level later if needed)
         if (listingData.images.length > 0) {
+            console.log(`[IMPORT] Processing ${listingData.images.length} images...`);
+            
             // Check if room already has images
             const existingRoomImages = await prisma.image.findMany({
                 where: { roomId: room.id },
@@ -149,44 +176,93 @@ export async function importListing(formData: FormData) {
             
             // Filter out duplicate images
             const newImageUrls = listingData.images.filter(url => !existingUrls.has(url));
+            console.log(`[IMPORT] Found ${newImageUrls.length} new images (${listingData.images.length - newImageUrls.length} duplicates skipped)`);
             
             if (newImageUrls.length > 0) {
-                console.log(`Importing ${newImageUrls.length} new images for room ${room.id} (${listingData.images.length - newImageUrls.length} duplicates skipped)`);
-                
-                // Download and store images locally
+                // Download and store images
                 const { downloadAndStoreImage } = await import('@/lib/download-image');
                 const batchSize = 10; // Process in smaller batches for downloads
                 let totalCreated = 0;
+                let failedDownloads = 0;
                 
                 // Download and create images for the room
                 for (let i = 0; i < newImageUrls.length; i += batchSize) {
                     const batch = newImageUrls.slice(i, i + batchSize);
+                    console.log(`[IMPORT] Processing image batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(newImageUrls.length / batchSize)}...`);
                     
-                    // Download all images in the batch
-                    const storedUrls = await Promise.all(
-                        batch.map(url => downloadAndStoreImage(url, 'room-images'))
-                    );
-                    
-                    // Create database records
-                    const result = await prisma.image.createMany({
-                        data: storedUrls.map(storedUrl => ({
-                            url: storedUrl,
-                            roomId: room.id
-                        }))
-                    });
-                    
-                    totalCreated += result.count;
-                    console.log(`Created batch: ${result.count} images (total: ${totalCreated})`);
+                    try {
+                        // Download all images in the batch
+                        const storedUrls = await Promise.allSettled(
+                            batch.map(async (url, idx) => {
+                                try {
+                                    console.log(`[IMPORT] Downloading image ${i + idx + 1}/${newImageUrls.length}: ${url.substring(0, 80)}...`);
+                                    return await downloadAndStoreImage(url, 'room-images');
+                                } catch (error) {
+                                    console.error(`[IMPORT] Failed to download image ${i + idx + 1}:`, error);
+                                    failedDownloads++;
+                                    throw error;
+                                }
+                            })
+                        );
+                        
+                        // Filter successful downloads
+                        const successfulUrls = storedUrls
+                            .filter((result): result is PromiseFulfilledResult<string> => result.status === 'fulfilled')
+                            .map(result => result.value);
+                        
+                        if (successfulUrls.length > 0) {
+                            // Create database records
+                            const result = await prisma.image.createMany({
+                                data: successfulUrls.map(storedUrl => ({
+                                    url: storedUrl,
+                                    roomId: room.id
+                                }))
+                            });
+                            
+                            totalCreated += result.count;
+                            console.log(`[IMPORT] Created batch: ${result.count} images (total: ${totalCreated}, failed: ${failedDownloads})`);
+                        } else {
+                            console.warn(`[IMPORT] No images successfully downloaded in this batch`);
+                        }
+                    } catch (error) {
+                        console.error(`[IMPORT] Error processing batch:`, error);
+                        failedDownloads += batch.length;
+                    }
                 }
-                console.log(`Successfully imported ${totalCreated} images to room ${room.id}`);
+                console.log(`[IMPORT] Successfully imported ${totalCreated} images to room ${room.id} (${failedDownloads} failed)`);
             } else {
-                console.log(`All ${listingData.images.length} images already exist for property ${propertyId} or room ${room.id}`);
+                console.log(`[IMPORT] All ${listingData.images.length} images already exist for property ${propertyId} or room ${room.id}`);
             }
+        } else {
+            console.log(`[IMPORT] No images to import`);
         }
 
+        console.log(`[IMPORT] Import completed successfully for room ${room.id}`);
     } catch (error) {
-        console.error("Import failed:", error);
-        throw new Error(error instanceof Error ? error.message : "Failed to import listing");
+        // Enhanced error logging
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        
+        console.error("[IMPORT] Import failed with error:");
+        console.error("[IMPORT] Message:", errorMessage);
+        console.error("[IMPORT] Stack:", errorStack);
+        console.error("[IMPORT] Full error object:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+        console.error("[IMPORT] Environment:", {
+            isVercel: isVercel,
+            nodeEnv: process.env.NODE_ENV,
+            hasBlobToken: !!process.env.BLOB_READ_WRITE_TOKEN
+        });
+        
+        // Provide more helpful error messages
+        if (errorMessage.includes('puppeteer') || errorMessage.includes('browser') || errorMessage.includes('Chrome')) {
+            throw new Error(`Browser automation failed. On Vercel, Puppeteer requires special configuration. Error: ${errorMessage}`);
+        } else if (errorMessage.includes('BLOB') || errorMessage.includes('storage') || errorMessage.includes('ENOENT')) {
+            throw new Error(`Image storage failed. Ensure BLOB_READ_WRITE_TOKEN is set in Vercel environment variables. Error: ${errorMessage}`);
+        } else if (errorMessage.includes('timeout') || errorMessage.includes('TIMEOUT')) {
+            throw new Error(`Request timed out. The Airbnb page may be slow or blocked. Try again or provide a gallery URL. Error: ${errorMessage}`);
+        } else {
+            throw new Error(`Import failed: ${errorMessage}. Check Vercel logs for details.`);
+        }
     }
 
     revalidatePath(`/admin/properties/${propertyId}`);

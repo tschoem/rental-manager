@@ -1,4 +1,9 @@
-import puppeteer from 'puppeteer';
+// Use puppeteer-core for serverless, puppeteer for local dev
+import puppeteerCore from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
+
+// Dynamic import for puppeteer (only used locally)
+let puppeteer: typeof import('puppeteer') | null = null;
 
 export interface AirbnbListingData {
     title: string;
@@ -9,15 +14,54 @@ export interface AirbnbListingData {
     images: string[];
 }
 
+// Detect if we're running on Vercel or similar serverless environment
+const isVercel = !!(process.env.VERCEL || process.env.VERCEL_URL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+
 export async function scrapeAirbnbListing(url: string, galleryUrl?: string): Promise<AirbnbListingData> {
     let browser;
 
     try {
         console.log('Launching browser...');
-        browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
+        console.log(`Environment: ${isVercel ? 'Vercel/Serverless' : 'Local'}`);
+        
+        if (isVercel) {
+            // Use @sparticuz/chromium for Vercel/serverless environments
+            console.log('Using @sparticuz/chromium for serverless environment');
+            
+            // Set up Chromium for serverless
+            chromium.setGraphicsMode(false); // Disable GPU for serverless
+            
+            try {
+                browser = await puppeteerCore.launch({
+                    args: chromium.args,
+                    defaultViewport: chromium.defaultViewport,
+                    executablePath: await chromium.executablePath(),
+                    headless: chromium.headless,
+                });
+                console.log('Chromium browser launched successfully');
+            } catch (chromiumError) {
+                console.error('Failed to launch Chromium:', chromiumError);
+                throw new Error(`Failed to launch browser on Vercel: ${chromiumError instanceof Error ? chromiumError.message : String(chromiumError)}. Make sure @sparticuz/chromium is installed.`);
+            }
+        } else {
+            // Use regular Puppeteer for local development
+            console.log('Using regular Puppeteer for local development');
+            try {
+                // Dynamically import puppeteer only when needed (local dev)
+                if (!puppeteer) {
+                    const puppeteerModule = await import('puppeteer');
+                    puppeteer = puppeteerModule.default || puppeteerModule;
+                }
+                browser = await puppeteer.launch({
+                    headless: true,
+                    args: ['--no-sandbox', '--disable-setuid-sandbox']
+                });
+                console.log('Puppeteer browser launched successfully');
+            } catch (puppeteerError) {
+                console.error('Failed to launch Puppeteer:', puppeteerError);
+                throw new Error(`Failed to launch browser locally: ${puppeteerError instanceof Error ? puppeteerError.message : String(puppeteerError)}. Try running: npx puppeteer browsers install chrome`);
+            }
+        }
 
         const page = await browser.newPage();
 
