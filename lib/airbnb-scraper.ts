@@ -19,7 +19,10 @@ export interface AirbnbListingData {
 export type ProgressCallback = (stage: string, message: string, progress: number, log?: string) => void | Promise<void>;
 
 // Detect if we're running on Vercel or similar serverless environment
+// Can simulate Vercel locally by setting SIMULATE_VERCEL=true
 const isVercel = !!(process.env.VERCEL || process.env.VERCEL_URL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const simulateVercel = process.env.SIMULATE_VERCEL === 'true';
+const isLinux = process.platform === 'linux';
 
 // Cache for Chromium executable path (to avoid re-downloading)
 let cachedExecutablePath: string | undefined = undefined;
@@ -43,8 +46,13 @@ export async function scrapeAirbnbListing(
     progressCallback?.('initializing', 'Launching browser...', 5, 'Launching browser...');
     console.log('Launching browser...');
     console.log(`Environment: ${isVercel ? 'Vercel/Serverless' : 'Local'}`);
+    if (simulateVercel) {
+      console.log('SIMULATE_VERCEL=true - simulating Vercel optimizations locally (but using regular Puppeteer on macOS)');
+    }
 
-    if (isVercel) {
+    // Use chromium-min only on actual Vercel/Linux environments
+    // On macOS with SIMULATE_VERCEL, use regular Puppeteer but apply Vercel optimizations
+    if (isVercel || (simulateVercel && isLinux)) {
       // Use @sparticuz/chromium-min for Vercel/serverless environments
       // The Chromium binaries are packaged at build time into public/chromium-pack.tar
       // chromium-min downloads and extracts from the hosted tar file at runtime
@@ -267,18 +275,28 @@ export async function scrapeAirbnbListing(
         throw new Error(`Failed to launch browser on Vercel: ${chromiumError instanceof Error ? chromiumError.message : String(chromiumError)}. Make sure chromium-pack.tar is available at /chromium-pack.tar`);
       }
     } else {
-      // Use regular Puppeteer for local development
-      console.log('Using regular Puppeteer for local development');
+      // Use regular Puppeteer for local development or macOS simulation
+      const reason = simulateVercel ? 'macOS simulation (using regular Puppeteer with Vercel optimizations)' : 'local development';
+      progressCallback?.('initializing', 'Using regular Puppeteer...', 28, `Using regular Puppeteer for ${reason}`);
+      console.log(`Using regular Puppeteer for ${reason}`);
       try {
         // Dynamically import puppeteer only when needed (local dev)
         if (!puppeteer) {
           const puppeteerModule = await import('puppeteer');
           puppeteer = puppeteerModule.default || puppeteerModule;
         }
+
+        // Apply Vercel-like optimizations even when using regular Puppeteer
+        const launchArgs = simulateVercel
+          ? ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--no-zygote', '--single-process']
+          : ['--no-sandbox', '--disable-setuid-sandbox'];
+
         browser = await puppeteer.launch({
           headless: true,
-          args: ['--no-sandbox', '--disable-setuid-sandbox']
+          args: launchArgs,
+          defaultViewport: { width: 1920, height: 1080 }
         });
+        progressCallback?.('initializing', 'Browser launched.', 30, 'Puppeteer browser launched successfully');
         console.log('Puppeteer browser launched successfully');
       } catch (puppeteerError) {
         console.error('Failed to launch Puppeteer:', puppeteerError);
@@ -404,67 +422,130 @@ export async function scrapeAirbnbListing(
       // Extract full description from the modal or expanded section
       // Wrap in try-catch to handle frame errors
       try {
-        description = await page.evaluate(() => {
-          // First, try to find the description in a more targeted way
-          // Look for the actual description paragraphs, not the whole container
+        // Wait a bit more for the modal/expanded content to appear
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-          // Strategy 1: Look for specific description divs/sections
+        description = await page.evaluate(() => {
+          // Strategy 1: Look for the expanded description in a modal/dialog
+          // After clicking "Show more", the description often appears in a modal
+          const modal = document.querySelector('[role="dialog"]');
+          if (modal) {
+            const modalText = modal.textContent || '';
+            // Look for paragraphs in the modal
+            const paragraphs: string[] = [];
+            const pElements = modal.querySelectorAll('p, div[class*="text"], span[class*="text"]');
+            pElements.forEach(p => {
+              const text = p.textContent?.trim() || '';
+              // Get substantial text blocks (50-3000 chars)
+              if (text.length > 50 &&
+                text.length < 3000 &&
+                !text.includes('{') &&
+                !text.includes('[') &&
+                !text.includes('Show more') &&
+                !text.includes('Read more') &&
+                !text.includes('Close') &&
+                !text.match(/^[A-Z\s]{1,20}$/) && // Not just all caps short text
+                !paragraphs.includes(text)) {
+                paragraphs.push(text);
+              }
+            });
+
+            if (paragraphs.length > 0) {
+              return paragraphs.join('\n\n');
+            }
+          }
+
+          // Strategy 2: Look for specific description sections
           const descriptionSelectors = [
             'div[data-section-id*="description"]',
             'div[data-testid*="description"]',
             'section[data-section-id*="description"]',
+            'div[id*="description"]',
           ];
 
           for (const selector of descriptionSelectors) {
             const elem = document.querySelector(selector);
             if (elem) {
-              // Get only direct text nodes and paragraph text
+              // Get all text content, then split into paragraphs
+              const fullText = elem.textContent || '';
+              // Split by double newlines or look for paragraph elements
               const paragraphs: string[] = [];
-              const pElements = elem.querySelectorAll('p, div > span');
-              pElements.forEach(p => {
-                const text = p.textContent?.trim() || '';
-                if (text.length > 20 && !text.includes('{') && !text.includes('[')) {
-                  paragraphs.push(text);
-                }
-              });
+              const pElements = elem.querySelectorAll('p, div[class*="paragraph"], span[class*="paragraph"]');
+
+              if (pElements.length > 0) {
+                pElements.forEach(p => {
+                  const text = p.textContent?.trim() || '';
+                  if (text.length > 50 &&
+                    text.length < 3000 &&
+                    !text.includes('{') &&
+                    !text.includes('[') &&
+                    !text.includes('Show more') &&
+                    !paragraphs.includes(text)) {
+                    paragraphs.push(text);
+                  }
+                });
+              } else {
+                // Fallback: split the full text by common paragraph markers
+                const textBlocks = fullText.split(/\n{2,}|\r\n{2,}/);
+                textBlocks.forEach(block => {
+                  const trimmed = block.trim();
+                  if (trimmed.length > 50 &&
+                    trimmed.length < 3000 &&
+                    !trimmed.includes('{') &&
+                    !trimmed.includes('[') &&
+                    !trimmed.includes('Show more')) {
+                    paragraphs.push(trimmed);
+                  }
+                });
+              }
 
               if (paragraphs.length > 0) {
-                return paragraphs.join('\n\n');
+                return paragraphs.slice(0, 10).join('\n\n'); // Limit to first 10 paragraphs
               }
             }
           }
 
-          // Strategy 2: Look for "About this space" heading and get following paragraphs
-          const allElements = Array.from(document.querySelectorAll('h2, h3, div, span'));
-          for (let i = 0; i < allElements.length; i++) {
-            const elem = allElements[i];
-            const text = elem.textContent || '';
-
-            if (text.trim() === 'About this space' || text.trim() === 'About this place') {
-              // Found the heading, now collect following paragraph elements
+          // Strategy 3: Look for "About this space" heading and get following content
+          const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, [class*="heading"]'));
+          for (const heading of headings) {
+            const headingText = heading.textContent?.trim() || '';
+            if (headingText.match(/about this (space|place)/i)) {
+              // Found the heading, now collect following content
               const paragraphs: string[] = [];
-              let current = elem.nextElementSibling;
+              let current: Element | null = heading.nextElementSibling;
               let count = 0;
+              const seen = new Set<string>();
 
-              while (current && count < 10) {
-                // Look for paragraph-like elements
-                const pTags = current.querySelectorAll('span, div');
-                pTags.forEach(p => {
-                  const pText = p.textContent?.trim() || '';
-                  // Filter out JSON, short text, and navigation elements
-                  if (pText.length > 30 &&
-                    pText.length < 2000 &&
-                    !pText.includes('{') &&
-                    !pText.includes('[') &&
-                    !pText.includes('http') &&
-                    !pText.includes('Show more') &&
-                    !paragraphs.includes(pText)) {
-                    paragraphs.push(pText);
+              while (current && count < 20) {
+                // Get text from the element itself
+                const elemText = current.textContent?.trim() || '';
+                if (elemText.length > 50 &&
+                  elemText.length < 3000 &&
+                  !elemText.includes('{') &&
+                  !elemText.includes('[') &&
+                  !elemText.includes('Show more') &&
+                  !seen.has(elemText)) {
+                  seen.add(elemText);
+                  paragraphs.push(elemText);
+                }
+
+                // Also check child elements
+                const childElements = current.querySelectorAll('p, div, span');
+                childElements.forEach(child => {
+                  const childText = child.textContent?.trim() || '';
+                  if (childText.length > 50 &&
+                    childText.length < 3000 &&
+                    !childText.includes('{') &&
+                    !childText.includes('[') &&
+                    !childText.includes('Show more') &&
+                    !seen.has(childText)) {
+                    seen.add(childText);
+                    paragraphs.push(childText);
                   }
                 });
 
-                if (paragraphs.length > 0) {
-                  break;
+                if (paragraphs.length >= 3) {
+                  break; // Got enough content
                 }
 
                 current = current.nextElementSibling;
@@ -472,14 +553,43 @@ export async function scrapeAirbnbListing(
               }
 
               if (paragraphs.length > 0) {
-                return paragraphs.slice(0, 5).join('\n\n'); // Limit to first 5 paragraphs
+                return paragraphs.slice(0, 10).join('\n\n');
               }
             }
           }
 
-          // Fallback to meta description
+          // Strategy 4: Look for the largest text block that looks like a description
+          const allTextElements = Array.from(document.querySelectorAll('p, div, span, section'));
+          let longestDescription = '';
+          for (const elem of allTextElements) {
+            const text = elem.textContent?.trim() || '';
+            // Look for substantial text blocks that aren't navigation/UI elements
+            if (text.length > 100 &&
+              text.length < 5000 &&
+              text.split(/\s+/).length > 20 && // At least 20 words
+              !text.includes('{') &&
+              !text.includes('[') &&
+              !text.includes('Show more') &&
+              !text.includes('Read more') &&
+              !text.includes('Close') &&
+              !text.match(/^(Share|Save|Book|Check|Guest|Review)/i) && // Not UI buttons
+              text.length > longestDescription.length) {
+              longestDescription = text;
+            }
+          }
+
+          if (longestDescription) {
+            return longestDescription;
+          }
+
+          // Strategy 5: Fallback to meta description
           const metaDesc = document.querySelector('meta[property="og:description"]');
-          return metaDesc?.getAttribute('content') || 'Imported from Airbnb';
+          const metaContent = metaDesc?.getAttribute('content') || '';
+          if (metaContent.length > 50) {
+            return metaContent;
+          }
+
+          return 'Imported from Airbnb';
         });
       } catch (evalError: any) {
         // Handle frame errors during description extraction
@@ -1117,13 +1227,34 @@ export async function scrapeAirbnbListing(
               throw navError;
             }
 
+            // Wait for the amenities dialog/modal to appear
+            try {
+              await page.waitForSelector('[role="dialog"]', { timeout: 10000 });
+              await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for content to load
+            } catch (e) {
+              console.log('Amenities dialog not found, trying anyway...');
+            }
+
             // Extract amenities from the amenities page
             const allAmenities = await page.evaluate(() => {
               const amenitiesList: string[] = [];
               const seen = new Set<string>();
 
-              // Find the dialog with "What this place offers"
-              const dialog = document.querySelector('[role="dialog"][aria-label*="What this place offers"], [role="dialog"][aria-label*="amenities"]');
+              // Strategy 1: Find the dialog with "What this place offers"
+              let dialog = document.querySelector('[role="dialog"][aria-label*="What this place offers"], [role="dialog"][aria-label*="amenities"]');
+
+              // Strategy 2: If not found, try any dialog
+              if (!dialog) {
+                dialog = document.querySelector('[role="dialog"]');
+              }
+
+              // Strategy 3: Try to find the amenities section directly on the page
+              if (!dialog) {
+                const amenitiesSection = document.querySelector('[data-section-id*="amenities"], [data-testid*="amenities"], section[aria-labelledby*="amenities"]');
+                if (amenitiesSection) {
+                  dialog = amenitiesSection as any;
+                }
+              }
 
               if (!dialog) {
                 console.log('Dialog not found, trying alternative selectors...');
@@ -1164,76 +1295,116 @@ export async function scrapeAirbnbListing(
                   });
                 }
               } else {
-                console.log('Found amenities dialog');
+                console.log('Found amenities dialog/section');
 
                 // Find all ul[role="list"] elements inside the dialog
-                const lists = dialog.querySelectorAll('ul[role="list"]');
-                console.log(`Found ${lists.length} amenity lists`);
+                let lists = dialog.querySelectorAll('ul[role="list"]');
 
-                lists.forEach((list, listIndex) => {
-                  const items = list.querySelectorAll('li');
-                  console.log(`List ${listIndex + 1} has ${items.length} items`);
+                // If no lists found, try to find list items directly
+                if (lists.length === 0) {
+                  lists = dialog.querySelectorAll('ul, ol');
+                }
 
-                  items.forEach((item, itemIndex) => {
-                    // Find the amenity name element
-                    // It's typically in a div with id containing "row-title" or class "twad414"
-                    const nameElement = item.querySelector('div[id*="row-title"], div.twad414, div[class*="row-title"]');
+                // If still no lists, try to find items with common amenity patterns
+                if (lists.length === 0) {
+                  const allItems = dialog.querySelectorAll('li, div[class*="item"], div[class*="row"]');
+                  allItems.forEach(item => {
+                    // Look for text that might be an amenity
+                    const text = item.textContent?.trim() || '';
+                    // Clean up the text
+                    let cleanText = text.split('\n')[0].split('–')[0].split('—')[0].trim();
+                    cleanText = cleanText.replace(/^Unavailable:\s*/i, '').trim();
+                    cleanText = cleanText.replace(/\s+/g, ' ');
 
-                    if (nameElement) {
-                      let text = nameElement.textContent?.trim() || '';
+                    const textLower = cleanText.toLowerCase();
+                    if (cleanText &&
+                      cleanText.length > 2 &&
+                      cleanText.length < 150 &&
+                      !seen.has(textLower) &&
+                      !textLower.match(/^(share|save|close|show|hide|more|less|×|back|what this place offers|amenities|not included|unavailable)$/i) &&
+                      !textLower.includes('unavailable') &&
+                      /[a-zA-Z]/.test(cleanText)) {
+                      seen.add(textLower);
+                      amenitiesList.push(cleanText);
+                    }
+                  });
+                } else {
+                  console.log(`Found ${lists.length} amenity lists`);
 
-                      // Skip "Unavailable:" items
-                      if (text.toLowerCase().startsWith('unavailable:')) {
-                        return;
+                  lists.forEach((list, listIndex) => {
+                    const items = list.querySelectorAll('li');
+                    console.log(`List ${listIndex + 1} has ${items.length} items`);
+
+                    items.forEach((item, itemIndex) => {
+                      // Find the amenity name element - try multiple selectors
+                      let nameElement = item.querySelector('div[id*="row-title"], div.twad414, div[class*="row-title"]');
+
+                      // Try alternative selectors
+                      if (!nameElement) {
+                        nameElement = item.querySelector('span[class*="text"], div[class*="text"], span[class*="name"]');
                       }
 
-                      // Remove "Unavailable:" prefix if present
-                      text = text.replace(/^Unavailable:\s*/i, '').trim();
-
-                      // Clean up - get just the amenity name, not descriptions
-                      text = text.split('\n')[0].split('–')[0].split('—')[0].trim();
-                      text = text.replace(/\s+/g, ' ');
-
-                      const textLower = text.toLowerCase();
-
-                      // Filter for valid amenities
-                      if (text &&
-                        text.length > 2 &&
-                        text.length < 150 &&
-                        !seen.has(textLower) &&
-                        !textLower.match(/^(share|save|close|show|hide|more|less|×|back|what this place offers|amenities|not included)$/i) &&
-                        !textLower.includes('unavailable') &&
-                        /[a-zA-Z]/.test(text)) {
-
-                        seen.add(textLower);
-                        amenitiesList.push(text);
-                        console.log(`Added amenity: ${text}`);
+                      // If still not found, use the item itself
+                      if (!nameElement) {
+                        nameElement = item as any;
                       }
-                    } else {
-                      // Fallback: try to get text from the item itself if it has an SVG
-                      const hasIcon = item.querySelector('svg') !== null;
-                      if (hasIcon) {
-                        // Try to find text in spans or divs that might contain the name
-                        const textElements = item.querySelectorAll('span, div');
-                        for (const elem of Array.from(textElements)) {
-                          const elemText = elem.textContent?.trim() || '';
-                          if (elemText &&
-                            elemText.length > 2 &&
-                            elemText.length < 150 &&
-                            !elemText.toLowerCase().startsWith('unavailable') &&
-                            !elemText.match(/^(share|save|close|show|hide|more|less|×|back)$/i)) {
-                            const textLower = elemText.toLowerCase();
-                            if (!seen.has(textLower) && /[a-zA-Z]/.test(elemText)) {
-                              seen.add(textLower);
-                              amenitiesList.push(elemText);
-                              break; // Found one, move to next item
+
+                      if (nameElement) {
+                        let text = nameElement.textContent?.trim() || '';
+
+                        // Skip "Unavailable:" items
+                        if (text.toLowerCase().startsWith('unavailable:')) {
+                          return;
+                        }
+
+                        // Remove "Unavailable:" prefix if present
+                        text = text.replace(/^Unavailable:\s*/i, '').trim();
+
+                        // Clean up - get just the amenity name, not descriptions
+                        text = text.split('\n')[0].split('–')[0].split('—')[0].trim();
+                        text = text.replace(/\s+/g, ' ');
+
+                        const textLower = text.toLowerCase();
+
+                        // Filter for valid amenities
+                        if (text &&
+                          text.length > 2 &&
+                          text.length < 150 &&
+                          !seen.has(textLower) &&
+                          !textLower.match(/^(share|save|close|show|hide|more|less|×|back|what this place offers|amenities|not included)$/i) &&
+                          !textLower.includes('unavailable') &&
+                          /[a-zA-Z]/.test(text)) {
+
+                          seen.add(textLower);
+                          amenitiesList.push(text);
+                          console.log(`Added amenity: ${text}`);
+                        }
+                      } else {
+                        // Fallback: try to get text from the item itself if it has an SVG
+                        const hasIcon = item.querySelector('svg') !== null;
+                        if (hasIcon) {
+                          // Try to find text in spans or divs that might contain the name
+                          const textElements = item.querySelectorAll('span, div');
+                          for (const elem of Array.from(textElements)) {
+                            const elemText = elem.textContent?.trim() || '';
+                            if (elemText &&
+                              elemText.length > 2 &&
+                              elemText.length < 150 &&
+                              !elemText.toLowerCase().startsWith('unavailable') &&
+                              !elemText.match(/^(share|save|close|show|hide|more|less|×|back)$/i)) {
+                              const textLower = elemText.toLowerCase();
+                              if (!seen.has(textLower) && /[a-zA-Z]/.test(elemText)) {
+                                seen.add(textLower);
+                                amenitiesList.push(elemText);
+                                break; // Found one, move to next item
+                              }
                             }
                           }
                         }
                       }
-                    }
+                    });
                   });
-                });
+                }
               }
 
               console.log(`Found ${amenitiesList.length} amenities from /amenities page`);

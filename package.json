@@ -35,7 +35,8 @@
     "update-property-admin": "tsx scripts/update-property-admin.ts",
     "list-users": "tsx scripts/list-users.ts",
     "delete-user": "tsx scripts/delete-user.ts",
-    "list-gemini-models": "tsx scripts/list-gemini-models.ts"
+    "list-gemini-models": "tsx scripts/list-gemini-models.ts",
+    "test-scraper": "tsx scripts/test-scraper.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
