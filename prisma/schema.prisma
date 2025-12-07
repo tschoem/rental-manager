@@ -222,6 +222,7 @@ model Property {
   name        String
   description String?
   address     String?
+  heroImageIds String? // JSON array of image IDs (max 3) for hero images
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   

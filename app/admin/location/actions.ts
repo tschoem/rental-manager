@@ -43,31 +43,56 @@ export async function updateLocationPageContent(formData: FormData) {
 
     const settings = await getOrCreateLocationPageSettings();
 
-    const heroTitle = formData.get("heroTitle") as string;
-    const heroSubtitle = formData.get("heroSubtitle") as string;
-    const area1Title = formData.get("area1Title") as string;
-    const area1Subtitle = formData.get("area1Subtitle") as string;
-    const area1Content = formData.get("area1Content") as string;
-    const area2Title = formData.get("area2Title") as string;
-    const area2Subtitle = formData.get("area2Subtitle") as string;
-    const area2Content = formData.get("area2Content") as string;
-    const mapTitle = formData.get("mapTitle") as string;
-    const mapEmbedUrl = formData.get("mapEmbedUrl") as string;
+    // Build update object with only fields that are present in formData
+    // This prevents overwriting other fields when saving individual sections
+    const updateData: {
+        heroTitle?: string | null;
+        heroSubtitle?: string | null;
+        area1Title?: string | null;
+        area1Subtitle?: string | null;
+        area1Content?: string | null;
+        area2Title?: string | null;
+        area2Subtitle?: string | null;
+        area2Content?: string | null;
+        mapTitle?: string | null;
+        mapEmbedUrl?: string | null;
+    } = {};
+
+    // Only update fields that are present in the formData
+    if (formData.has("heroTitle")) {
+        updateData.heroTitle = (formData.get("heroTitle") as string) || null;
+    }
+    if (formData.has("heroSubtitle")) {
+        updateData.heroSubtitle = (formData.get("heroSubtitle") as string) || null;
+    }
+    if (formData.has("area1Title")) {
+        updateData.area1Title = (formData.get("area1Title") as string) || null;
+    }
+    if (formData.has("area1Subtitle")) {
+        updateData.area1Subtitle = (formData.get("area1Subtitle") as string) || null;
+    }
+    if (formData.has("area1Content")) {
+        updateData.area1Content = (formData.get("area1Content") as string) || null;
+    }
+    if (formData.has("area2Title")) {
+        updateData.area2Title = (formData.get("area2Title") as string) || null;
+    }
+    if (formData.has("area2Subtitle")) {
+        updateData.area2Subtitle = (formData.get("area2Subtitle") as string) || null;
+    }
+    if (formData.has("area2Content")) {
+        updateData.area2Content = (formData.get("area2Content") as string) || null;
+    }
+    if (formData.has("mapTitle")) {
+        updateData.mapTitle = (formData.get("mapTitle") as string) || null;
+    }
+    if (formData.has("mapEmbedUrl")) {
+        updateData.mapEmbedUrl = (formData.get("mapEmbedUrl") as string) || null;
+    }
 
     await prisma.locationPageSettings.update({
         where: { id: settings.id },
-        data: {
-            heroTitle: heroTitle || null,
-            heroSubtitle: heroSubtitle || null,
-            area1Title: area1Title || null,
-            area1Subtitle: area1Subtitle || null,
-            area1Content: area1Content || null,
-            area2Title: area2Title || null,
-            area2Subtitle: area2Subtitle || null,
-            area2Content: area2Content || null,
-            mapTitle: mapTitle || null,
-            mapEmbedUrl: mapEmbedUrl || null,
-        }
+        data: updateData
     });
 
     revalidatePath('/location');

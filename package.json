@@ -36,7 +36,8 @@
     "list-users": "tsx scripts/list-users.ts",
     "delete-user": "tsx scripts/delete-user.ts",
     "list-gemini-models": "tsx scripts/list-gemini-models.ts",
-    "test-scraper": "tsx scripts/test-scraper.ts"
+    "test-scraper": "tsx scripts/test-scraper.ts",
+    "test-simple-scraper": "tsx scripts/test-simple-scraper.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

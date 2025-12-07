@@ -31,7 +31,7 @@ export default async function PropertyDetailsPage({ params }: { params: Promise<
 
             {/* Property Photos */}
             <div style={{ marginTop: '4rem', borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
-                <PropertyImages propertyId={property.id} images={property.images} />
+                <PropertyImages propertyId={property.id} images={property.images} heroImageIds={property.heroImageIds} />
             </div>
 
             <div style={{ marginTop: '4rem', borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>

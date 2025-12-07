@@ -6,6 +6,7 @@ import Footer from "@/app/_components/Footer";
 import RoomCard from "./_components/RoomCard";
 import PhotoGallery from "@/app/rooms/[id]/_components/PhotoGallery";
 import PropertyMap from "./_components/PropertyMap";
+import PropertyHero from "./_components/PropertyHero";
 
 export const dynamic = 'force-dynamic';
 
@@ -27,26 +28,30 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
 
     if (!property) notFound();
 
+    // Parse hero image IDs and get their URLs
+    let heroImageUrls: string[] = [];
+    if (property.heroImageIds) {
+        try {
+            const heroImageIds = JSON.parse(property.heroImageIds);
+            heroImageUrls = property.images
+                .filter(img => heroImageIds.includes(img.id))
+                .map(img => img.url);
+        } catch (e) {
+            // If parsing fails, use empty array
+            heroImageUrls = [];
+        }
+    }
+
     return (
         <div>
             <Header />
 
-            {/* Hero Section */}
-            <section
-                className="hero"
-                style={{
-                    backgroundImage: 'url(/hero_bg.jpg)',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center'
-                }}
-            >
-                <div className="hero-content">
-                    <h1>{property.name}</h1>
-                    {property.address && (
-                        <p>{property.address}</p>
-                    )}
-                </div>
-            </section>
+            {/* Hero Section with Slideshow */}
+            <PropertyHero 
+                heroImages={heroImageUrls}
+                propertyName={property.name}
+                propertyAddress={property.address}
+            />
 
             <main className="container" style={{ padding: '4rem 1rem', maxWidth: '1200px' }}>
                 {/* Photo Gallery */}

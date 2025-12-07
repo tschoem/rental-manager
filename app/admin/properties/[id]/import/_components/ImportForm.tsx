@@ -48,8 +48,8 @@ export default function ImportForm({ propertyId, propertyName }: ImportFormProps
   const getStageInfo = (stage: ProgressStage) => {
     const stages = {
       idle: { label: 'Ready', message: 'Click Import Room to start', progress: 0 },
-      initializing: { label: 'Initializing', message: 'Starting browser and loading page...', progress: 10 },
-      scraping: { label: 'Scraping Listing', message: 'Extracting title, description, price, and capacity...', progress: 30 },
+      initializing: { label: 'Initializing', message: 'Starting import...', progress: 10 },
+      scraping: { label: 'Scraping Listing', message: 'Extracting data from HTML...', progress: 30 },
       'extracting-images': { label: 'Extracting Images', message: 'Collecting images from gallery...', progress: 50 },
       'extracting-amenities': { label: 'Extracting Amenities', message: 'Getting amenities list...', progress: 70 },
       saving: { label: 'Saving', message: 'Saving room and images to database...', progress: 90 },
@@ -62,6 +62,7 @@ export default function ImportForm({ propertyId, propertyName }: ImportFormProps
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    formData.append('useSimpleScraper', 'true'); // Always use simple scraper
 
     setLoading(true);
     setError("");
@@ -167,9 +168,7 @@ export default function ImportForm({ propertyId, propertyName }: ImportFormProps
       }
 
       // Add helpful hints based on error type
-      if (errorMessage.includes('Puppeteer') || errorMessage.includes('browser') || errorMessage.includes('Chrome')) {
-        errorMessage += "\n\n💡 Tip: Puppeteer may need special configuration on Vercel. See VERCEL_TROUBLESHOOTING.md";
-      } else if (errorMessage.includes('BLOB') || errorMessage.includes('storage') || errorMessage.includes('ENOENT')) {
+      if (errorMessage.includes('BLOB') || errorMessage.includes('storage') || errorMessage.includes('ENOENT')) {
         errorMessage += "\n\n💡 Tip: Ensure BLOB_READ_WRITE_TOKEN is set in Vercel environment variables.";
       } else if (errorMessage.includes('timeout') || errorMessage.includes('TIMEOUT')) {
         errorMessage += "\n\n💡 Tip: The request timed out. Try again or provide a gallery URL to speed up the process.";
@@ -203,7 +202,7 @@ export default function ImportForm({ propertyId, propertyName }: ImportFormProps
             style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem' }}
           />
           <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-            We will try to fetch the title, description, and main image. You can edit these later.
+            We will extract the title, description, images, and other details from the listing. You can edit these later.
           </p>
         </div>
 
@@ -217,7 +216,7 @@ export default function ImportForm({ propertyId, propertyName }: ImportFormProps
             style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem' }}
           />
           <p style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-            If automatic image extraction fails, paste the gallery URL here. Open the first image on the listing page and copy the URL from the address bar.
+            Optional: If you want to specify a specific gallery page, paste the gallery URL here.
           </p>
         </div>
 

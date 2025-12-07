@@ -318,6 +318,7 @@ export async function deleteRoom(roomId: string) {
     });
 
     revalidatePath(`/admin/properties/${room.propertyId}`);
+    redirect(`/admin/properties/${room.propertyId}`);
 }
 
 export async function moveRoomUp(roomId: string) {

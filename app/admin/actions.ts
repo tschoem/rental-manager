@@ -111,17 +111,11 @@ export async function importListing(formData: FormData) {
       throw new Error("Invalid Airbnb URL");
     }
 
-    // Check if we're on Vercel and warn about Puppeteer limitations
-    const isVercel = !!(process.env.VERCEL || process.env.VERCEL_URL);
-    if (isVercel) {
-      console.log("⚠️ Running on Vercel - Puppeteer may have limitations");
-    }
-
     // Main import logic
     try {
       // Write initial progress - make sure this completes
       try {
-        await updateImportProgress(propertyId, 'initializing', 'Starting browser and loading page...', 5, '[IMPORT] Starting import');
+        await updateImportProgress(propertyId, 'initializing', 'Starting import...', 5, '[IMPORT] Starting import');
       } catch (progressError) {
         console.error('[IMPORT] Failed to write initial progress (non-critical):', progressError);
       }
@@ -131,15 +125,14 @@ export async function importListing(formData: FormData) {
       console.log(`[IMPORT] Gallery URL: ${galleryUrl || 'none'}`);
       console.log(`[IMPORT] iCal URL: ${iCalUrl || 'none'}`);
 
-      // Use enhanced scraper
-      await updateImportProgress(propertyId, 'initializing', 'Loading scraper module...', 10, '[IMPORT] Loading scraper module...');
+      // Use simple scraper (fetch + Cheerio) - always
+      await updateImportProgress(propertyId, 'initializing', 'Loading scraper...', 10, '[IMPORT] Loading scraper module...');
       console.log(`[IMPORT] Loading scraper module...`);
-      const { scrapeAirbnbListing } = await import('@/lib/airbnb-scraper');
+      const { scrapeAirbnbListingSimple } = await import('@/lib/airbnb-scraper-simple');
 
-      await updateImportProgress(propertyId, 'scraping', 'Extracting title, description, price, and capacity...', 20, '[IMPORT] Starting scrape...');
+      await updateImportProgress(propertyId, 'scraping', 'Extracting data from HTML...', 20, '[IMPORT] Starting scrape...');
       console.log(`[IMPORT] Starting scrape...`);
-      const listingData = await scrapeAirbnbListing(url, galleryUrl || undefined, async (stage, message, progress, log) => {
-        // Fire and forget - don't block on progress updates
+      const listingData = await scrapeAirbnbListingSimple(url, async (stage, message, progress, log) => {
         updateImportProgress(propertyId, stage, message, progress, log).catch(err => {
           console.error('[PROGRESS] Failed to update progress (non-critical):', err);
         });
@@ -229,10 +222,14 @@ export async function importListing(formData: FormData) {
                 batch.map(async (url, idx) => {
                   try {
                     console.log(`[IMPORT] Downloading image ${i + idx + 1}/${newImageUrls.length}: ${url.substring(0, 80)}...`);
-                    return await downloadAndStoreImage(url, 'room-images');
+                    const storedUrl = await downloadAndStoreImage(url, 'room-images');
+                    console.log(`[IMPORT] Image ${i + idx + 1} stored at: ${storedUrl}`);
+                    return storedUrl;
                   } catch (error) {
                     console.error(`[IMPORT] Failed to download image ${i + idx + 1}:`, error);
+                    console.error(`[IMPORT] Error details:`, error instanceof Error ? error.stack : String(error));
                     failedDownloads++;
+                    // Re-throw so Promise.allSettled marks it as rejected
                     throw error;
                   }
                 })
@@ -243,7 +240,33 @@ export async function importListing(formData: FormData) {
                 .filter((result): result is PromiseFulfilledResult<string> => result.status === 'fulfilled')
                 .map(result => result.value);
 
+              // Log failed downloads
+              const failedUrls = storedUrls
+                .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+                .map(result => result.reason);
+
+              if (failedUrls.length > 0) {
+                console.error(`[IMPORT] ${failedUrls.length} images failed to download in this batch:`);
+                failedUrls.forEach((reason, idx) => {
+                  console.error(`[IMPORT] Failed image ${idx + 1}:`, reason instanceof Error ? reason.message : String(reason));
+                });
+              }
+
               if (successfulUrls.length > 0) {
+                // Verify URLs are blob URLs (not original Airbnb URLs)
+                const blobUrls = successfulUrls.filter(url =>
+                  url.startsWith('https://') || url.startsWith('/room-images/')
+                );
+
+                if (blobUrls.length !== successfulUrls.length) {
+                  console.warn(`[IMPORT] Warning: Some images may not have been stored properly. Expected ${successfulUrls.length} blob URLs, got ${blobUrls.length}`);
+                  successfulUrls.forEach((url, idx) => {
+                    if (!url.startsWith('https://') && !url.startsWith('/room-images/')) {
+                      console.warn(`[IMPORT] Image ${idx + 1} URL looks like original Airbnb URL: ${url.substring(0, 100)}`);
+                    }
+                  });
+                }
+
                 // Create database records
                 const result = await prisma.image.createMany({
                   data: successfulUrls.map(storedUrl => ({
@@ -254,6 +277,9 @@ export async function importListing(formData: FormData) {
 
                 totalCreated += result.count;
                 console.log(`[IMPORT] Created batch: ${result.count} images (total: ${totalCreated}, failed: ${failedDownloads})`);
+                if (successfulUrls.length > 0) {
+                  console.log(`[IMPORT] Sample stored URL: ${successfulUrls[0]?.substring(0, 100)}`);
+                }
               } else {
                 console.warn(`[IMPORT] No images successfully downloaded in this batch`);
               }
@@ -305,7 +331,7 @@ export async function importListing(formData: FormData) {
       console.error("[IMPORT] Error Stack:", errorStack);
       console.error("[IMPORT] Full error object:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
       console.error("[IMPORT] Environment:", {
-        isVercel: isVercel,
+        isVercel: !!(process.env.VERCEL || process.env.VERCEL_URL),
         nodeEnv: process.env.NODE_ENV,
         hasBlobToken: !!process.env.BLOB_READ_WRITE_TOKEN,
         vercelEnv: process.env.VERCEL_ENV,
@@ -317,9 +343,7 @@ export async function importListing(formData: FormData) {
       let userFriendlyMessage = `Import failed: ${errorMessage}`;
 
       // Provide more helpful error messages
-      if (errorMessage.includes('puppeteer') || errorMessage.includes('browser') || errorMessage.includes('Chrome') || errorMessage.includes('chromium')) {
-        userFriendlyMessage = `Browser automation failed. On Vercel, Puppeteer requires special configuration. Error: ${errorMessage}`;
-      } else if (errorMessage.includes('BLOB') || errorMessage.includes('storage') || errorMessage.includes('ENOENT')) {
+      if (errorMessage.includes('BLOB') || errorMessage.includes('storage') || errorMessage.includes('ENOENT')) {
         userFriendlyMessage = `Image storage failed. Ensure BLOB_READ_WRITE_TOKEN is set in Vercel environment variables. Error: ${errorMessage}`;
       } else if (errorMessage.includes('timeout') || errorMessage.includes('TIMEOUT')) {
         userFriendlyMessage = `Request timed out. The Airbnb page may be slow or blocked. Try again or provide a gallery URL. Error: ${errorMessage}`;
@@ -388,6 +412,12 @@ export async function deletePropertyImage(imageId: string, propertyId: string) {
   const session = await getServerSession(authOptions);
   if (!session) throw new Error("Unauthorized");
 
+  // Get property to check if this image is a hero image
+  const property = await prisma.property.findUnique({
+    where: { id: propertyId },
+    select: { heroImageIds: true }
+  });
+
   // Get image to delete the file if it's stored locally
   const image = await prisma.image.findUnique({
     where: { id: imageId }
@@ -396,6 +426,20 @@ export async function deletePropertyImage(imageId: string, propertyId: string) {
   await prisma.image.delete({
     where: { id: imageId }
   });
+
+  // Remove from hero images if it was one
+  if (property && property.heroImageIds) {
+    try {
+      let heroImageIds: string[] = JSON.parse(property.heroImageIds);
+      heroImageIds = heroImageIds.filter(id => id !== imageId);
+      await prisma.property.update({
+        where: { id: propertyId },
+        data: { heroImageIds: JSON.stringify(heroImageIds) }
+      });
+    } catch (e) {
+      // If parsing fails, ignore
+    }
+  }
 
   // Delete the file using storage abstraction (handles Vercel Blob or local filesystem)
   if (image && (image.url.startsWith('/') || image.url.startsWith('https://'))) {
@@ -408,12 +452,20 @@ export async function deletePropertyImage(imageId: string, propertyId: string) {
   }
 
   revalidatePath(`/admin/properties/${propertyId}`);
+  revalidatePath('/');
+  revalidatePath(`/properties/${propertyId}`);
 }
 
 export async function deletePropertyImages(imageIds: string[], propertyId: string) {
   if (!authOptions) throw new Error("Authentication not configured");
   const session = await getServerSession(authOptions);
   if (!session) throw new Error("Unauthorized");
+
+  // Get property to check if any of these images are hero images
+  const property = await prisma.property.findUnique({
+    where: { id: propertyId },
+    select: { heroImageIds: true }
+  });
 
   // Get images to delete the files if they're stored locally
   const images = await prisma.image.findMany({
@@ -430,6 +482,20 @@ export async function deletePropertyImages(imageIds: string[], propertyId: strin
     }
   });
 
+  // Remove deleted images from hero images if any were hero images
+  if (property && property.heroImageIds) {
+    try {
+      let heroImageIds: string[] = JSON.parse(property.heroImageIds);
+      heroImageIds = heroImageIds.filter(id => !imageIds.includes(id));
+      await prisma.property.update({
+        where: { id: propertyId },
+        data: { heroImageIds: JSON.stringify(heroImageIds) }
+      });
+    } catch (e) {
+      // If parsing fails, ignore
+    }
+  }
+
   // Delete the files using storage abstraction (handles Vercel Blob or local filesystem)
   const { deleteFile } = await import('@/lib/storage');
 
@@ -444,4 +510,63 @@ export async function deletePropertyImages(imageIds: string[], propertyId: strin
   }
 
   revalidatePath(`/admin/properties/${propertyId}`);
+  revalidatePath('/');
+  revalidatePath(`/properties/${propertyId}`);
+}
+
+export async function togglePropertyHeroImage(propertyId: string, imageId: string) {
+  if (!authOptions) throw new Error("Authentication not configured");
+  const session = await getServerSession(authOptions);
+  if (!session) throw new Error("Unauthorized");
+
+  // Get the image to verify it belongs to this property
+  const image = await prisma.image.findUnique({
+    where: { id: imageId },
+    select: { propertyId: true }
+  });
+
+  if (!image) throw new Error("Image not found");
+  if (image.propertyId !== propertyId) throw new Error("Image does not belong to this property");
+
+  // Get current property to read existing hero image IDs
+  const property = await prisma.property.findUnique({
+    where: { id: propertyId },
+    select: { heroImageIds: true }
+  });
+
+  if (!property) throw new Error("Property not found");
+
+  // Parse existing hero image IDs or initialize empty array
+  let heroImageIds: string[] = [];
+  if (property.heroImageIds) {
+    try {
+      heroImageIds = JSON.parse(property.heroImageIds);
+    } catch (e) {
+      // If parsing fails, start with empty array
+      heroImageIds = [];
+    }
+  }
+
+  // Toggle the image ID in the array
+  const index = heroImageIds.indexOf(imageId);
+  if (index > -1) {
+    // Remove if already in array
+    heroImageIds.splice(index, 1);
+  } else {
+    // Add if not in array (but only if we have less than 3)
+    if (heroImageIds.length >= 3) {
+      throw new Error("Maximum of 3 hero images allowed");
+    }
+    heroImageIds.push(imageId);
+  }
+
+  // Update the property with the new hero image IDs array
+  await prisma.property.update({
+    where: { id: propertyId },
+    data: { heroImageIds: JSON.stringify(heroImageIds) }
+  });
+
+  revalidatePath(`/admin/properties/${propertyId}`);
+  revalidatePath('/'); // Revalidate home page since it uses this in single property mode
+  revalidatePath(`/properties/${propertyId}`); // Revalidate property page
 }

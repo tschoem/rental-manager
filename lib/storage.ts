@@ -23,27 +23,52 @@ export async function uploadFile(
   filename: string,
   folder: string
 ): Promise<string> {
-  if (isVercel && BLOB_STORE_TOKEN) {
-    // Use Vercel Blob Storage
-    const blobPath = `${folder}/${filename}`;
-    const blob = await put(blobPath, buffer, {
-      access: 'public',
-      token: BLOB_STORE_TOKEN,
-    });
-    return blob.url;
+  console.log(`[STORAGE] Uploading file: ${folder}/${filename} (${buffer.length} bytes)`);
+  console.log(`[STORAGE] Environment: isVercel=${isVercel}, hasToken=${!!BLOB_STORE_TOKEN}`);
+
+  // Use Vercel Blob Storage if token is available (works both locally and on Vercel)
+  if (BLOB_STORE_TOKEN) {
+    try {
+      const blobPath = `${folder}/${filename}`;
+      const location = isVercel ? 'Vercel' : 'local machine';
+      console.log(`[STORAGE] Uploading to Vercel Blob from ${location}: ${blobPath}`);
+      const blob = await put(blobPath, buffer, {
+        access: 'public',
+        token: BLOB_STORE_TOKEN,
+      });
+      console.log(`[STORAGE] Successfully uploaded to Blob. URL: ${blob.url}`);
+      return blob.url;
+    } catch (error) {
+      console.error(`[STORAGE] Failed to upload to Vercel Blob:`, error);
+      throw new Error(`Vercel Blob upload failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  } else if (isVercel) {
+    // On Vercel but no token - this is an error
+    console.error(`[STORAGE] ERROR: Running on Vercel but BLOB_READ_WRITE_TOKEN is not set!`);
+    throw new Error('BLOB_READ_WRITE_TOKEN environment variable is required on Vercel. Please set it in your Vercel project settings.');
   } else {
     // Use local filesystem (development)
-    const publicDir = path.join(process.cwd(), 'public', folder);
-    const filePath = path.join(publicDir, filename);
+    try {
+      const publicDir = path.join(process.cwd(), 'public', folder);
+      const filePath = path.join(publicDir, filename);
 
-    // Ensure directory exists
-    await fs.mkdir(publicDir, { recursive: true });
+      console.log(`[STORAGE] Saving to local filesystem: ${filePath}`);
 
-    // Write file
-    await fs.writeFile(filePath, buffer);
+      // Ensure directory exists
+      await fs.mkdir(publicDir, { recursive: true });
 
-    // Return the public URL path
-    return `/${folder}/${filename}`;
+      // Write file
+      await fs.writeFile(filePath, buffer);
+
+      const publicUrl = `/${folder}/${filename}`;
+      console.log(`[STORAGE] Successfully saved to local filesystem. URL: ${publicUrl}`);
+
+      // Return the public URL path
+      return publicUrl;
+    } catch (error) {
+      console.error(`[STORAGE] Failed to save to local filesystem:`, error);
+      throw new Error(`Local filesystem save failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 }
 
@@ -77,7 +102,7 @@ export async function deleteFile(url: string): Promise<void> {
  * @param url - Public URL of the file
  */
 export async function fileExists(url: string): Promise<boolean> {
-  if (isVercel && BLOB_STORE_TOKEN && url.startsWith('https://')) {
+  if (BLOB_STORE_TOKEN && url.startsWith('https://')) {
     try {
       await head(url, { token: BLOB_STORE_TOKEN });
       return true;
@@ -110,8 +135,8 @@ export async function moveFile(
 ): Promise<string> {
   // Read the old file
   let buffer: Buffer;
-  
-  if (isVercel && BLOB_STORE_TOKEN && oldUrl.startsWith('https://')) {
+
+  if (BLOB_STORE_TOKEN && oldUrl.startsWith('https://')) {
     // Download from Blob
     const response = await fetch(oldUrl);
     if (!response.ok) {

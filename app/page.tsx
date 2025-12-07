@@ -138,11 +138,24 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
 
     // If single property mode, get rooms from the first property (or all rooms)
     let rooms: any[] = [];
+    let propertyHeroImages: string[] = [];
     if (singlePropertyMode) {
       // Ideally we'd have a 'main property' setting, but for now we'll take the first one
       const mainProperty = properties[0];
       if (mainProperty) {
         rooms = mainProperty.rooms;
+        // Parse hero image IDs and get their URLs
+        if (mainProperty.heroImageIds) {
+          try {
+            const heroImageIds = JSON.parse(mainProperty.heroImageIds);
+            propertyHeroImages = mainProperty.images
+              .filter(img => heroImageIds.includes(img.id))
+              .map(img => img.url);
+          } catch (e) {
+            // If parsing fails, use empty array
+            propertyHeroImages = [];
+          }
+        }
       }
     }
 
@@ -196,7 +209,11 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
       {/* Hero Section */}
       <RotatingHero 
         singlePropertyMode={singlePropertyMode}
-        heroImages={homePageSettings?.heroImages.map(img => img.url) || []}
+        heroImages={
+          singlePropertyMode && propertyHeroImages.length > 0
+            ? [...propertyHeroImages, ...(homePageSettings?.heroImages.map(img => img.url) || [])]
+            : (homePageSettings?.heroImages.map(img => img.url) || [])
+        }
         heroTitle={homePageSettings?.heroTitle || "Your Home away from home"}
         heroSubtitle={homePageSettings?.heroSubtitle || "Enjoy Family hospitality - close to town, airport and beach"}
         heroCtaText={homePageSettings?.heroCtaText || (singlePropertyMode ? "Explore Rooms" : "Explore Properties")}

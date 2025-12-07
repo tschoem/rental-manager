@@ -16,9 +16,15 @@ export default function DeleteRoomButton({ roomId, roomName }: { roomId: string,
         setIsDeleting(true);
         try {
             await deleteRoom(roomId);
-            // Refresh the page to update the UI
-            router.refresh();
-        } catch (error) {
+            // deleteRoom redirects, so we don't need to do anything here
+            // The redirect will happen automatically
+        } catch (error: any) {
+            // Check if this is a Next.js redirect (not a real error)
+            if (error && typeof error === 'object' && 'digest' in error && typeof error.digest === 'string' && error.digest.includes('NEXT_REDIRECT')) {
+                // This is a redirect, not an error - let it happen
+                return;
+            }
+            // Real error - show alert and reset state
             alert('Failed to delete room. Please try again.');
             setIsDeleting(false);
         }

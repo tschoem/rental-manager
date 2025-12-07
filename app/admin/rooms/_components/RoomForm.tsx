@@ -32,6 +32,8 @@ export default function RoomForm({ propertyId, room }: RoomFormProps) {
         room?.amenities ? JSON.parse(room.amenities) : []
     );
     const [newAmenity, setNewAmenity] = useState("");
+    const [bulkAmenitiesText, setBulkAmenitiesText] = useState("");
+    const [showBulkImport, setShowBulkImport] = useState(false);
     const [newImageUrl, setNewImageUrl] = useState("");
     const [savingAmenities, setSavingAmenities] = useState(false);
     const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
@@ -54,6 +56,31 @@ export default function RoomForm({ propertyId, room }: RoomFormProps) {
     const handleRemoveAmenity = (index: number) => {
         const updated = amenitiesList.filter((_, i) => i !== index);
         setAmenitiesList(updated);
+
+        if (room) {
+            setSavingAmenities(true);
+            updateRoomAmenities(room.id, updated).finally(() => setSavingAmenities(false));
+        }
+    };
+
+    const handleBulkImport = () => {
+        if (!bulkAmenitiesText.trim()) return;
+
+        // Split by newlines, trim whitespace, filter empty lines, and remove duplicates
+        const newAmenities = bulkAmenitiesText
+            .split(/\r?\n/)
+            .map(line => line.trim())
+            .filter(line => line.length > 0)
+            .filter((amenity, index, self) => self.indexOf(amenity) === index); // Remove duplicates
+
+        // Merge with existing amenities, avoiding duplicates
+        const existingSet = new Set(amenitiesList);
+        const uniqueNewAmenities = newAmenities.filter(amenity => !existingSet.has(amenity));
+        const updated = [...amenitiesList, ...uniqueNewAmenities];
+
+        setAmenitiesList(updated);
+        setBulkAmenitiesText("");
+        setShowBulkImport(false);
 
         if (room) {
             setSavingAmenities(true);
@@ -363,8 +390,60 @@ export default function RoomForm({ propertyId, room }: RoomFormProps) {
             <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     <h2 style={{ fontSize: '1.25rem' }}>Amenities</h2>
-                    {savingAmenities && <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>Saving...</span>}
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        {savingAmenities && <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>Saving...</span>}
+                        <button
+                            onClick={() => setShowBulkImport(!showBulkImport)}
+                            className="btn btn-outline"
+                            style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
+                        >
+                            {showBulkImport ? 'Hide' : 'Bulk Import'}
+                        </button>
+                    </div>
                 </div>
+
+                {showBulkImport && (
+                    <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                        <label htmlFor="bulkAmenities" style={{ display: 'block', fontWeight: 500, marginBottom: '0.5rem' }}>
+                            Paste amenities (one per line):
+                        </label>
+                        <textarea
+                            id="bulkAmenities"
+                            value={bulkAmenitiesText}
+                            onChange={(e) => setBulkAmenitiesText(e.target.value)}
+                            placeholder="Bath&#10;Hair dryer&#10;Shampoo&#10;WiFi&#10;Kitchen&#10;..."
+                            rows={8}
+                            style={{ 
+                                width: '100%', 
+                                padding: '0.75rem', 
+                                borderRadius: '8px', 
+                                border: '1px solid var(--border)', 
+                                fontSize: '1rem', 
+                                fontFamily: 'inherit',
+                                lineHeight: 1.5,
+                                marginBottom: '0.5rem'
+                            }}
+                        />
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <button onClick={handleBulkImport} className="btn btn-primary" style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}>
+                                Import {bulkAmenitiesText.split(/\r?\n/).filter(line => line.trim().length > 0).length} amenities
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    setBulkAmenitiesText("");
+                                    setShowBulkImport(false);
+                                }} 
+                                className="btn btn-outline"
+                                style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.5rem' }}>
+                            Paste a list of amenities separated by line breaks. Duplicates will be automatically removed.
+                        </p>
+                    </div>
+                )}
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
                     {amenitiesList.map((amenity, index) => (
