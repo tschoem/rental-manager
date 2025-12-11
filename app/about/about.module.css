@@ -1,0 +1,190 @@
+.main {
+  padding: 2rem 1rem;
+  max-width: 1200px;
+}
+
+@media (min-width: 768px) {
+  .main {
+    padding: 4rem 1rem;
+  }
+}
+
+.title {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+@media (min-width: 768px) {
+  .title {
+    font-size: 3rem;
+  }
+}
+
+.subtitle {
+  font-size: 1rem;
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 768px) {
+  .subtitle {
+    font-size: 1.25rem;
+    margin-bottom: 4rem;
+  }
+}
+
+.ownersGrid {
+  display: grid;
+  gap: 2rem;
+}
+
+@media (min-width: 768px) {
+  .ownersGrid {
+    gap: 3rem;
+  }
+}
+
+.ownerCard {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (min-width: 768px) {
+  .ownerCard {
+    grid-template-columns: auto 1fr;
+    gap: 2rem;
+    padding: 2rem;
+  }
+}
+
+.profileImageContainer {
+  display: flex;
+  justify-content: center;
+}
+
+@media (min-width: 768px) {
+  .profileImageContainer {
+    justify-content: flex-start;
+  }
+}
+
+.profileImage {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--primary);
+}
+
+@media (min-width: 768px) {
+  .profileImage {
+    width: 200px;
+    height: 200px;
+  }
+}
+
+.profileImagePlaceholder {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 3rem;
+  font-weight: bold;
+  border: 3px solid var(--border);
+  margin: 0 auto;
+}
+
+@media (min-width: 768px) {
+  .profileImagePlaceholder {
+    width: 200px;
+    height: 200px;
+    font-size: 4rem;
+    margin: 0;
+  }
+}
+
+.ownerInfo {
+  text-align: center;
+}
+
+@media (min-width: 768px) {
+  .ownerInfo {
+    text-align: left;
+  }
+}
+
+.ownerName {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 768px) {
+  .ownerName {
+    font-size: 2rem;
+  }
+}
+
+.ownerBio {
+  font-size: 1rem;
+  line-height: 1.8;
+  color: var(--foreground);
+  margin-bottom: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .ownerBio {
+    font-size: 1.1rem;
+  }
+}
+
+.socialLinks {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+  justify-content: center;
+}
+
+@media (min-width: 768px) {
+  .socialLinks {
+    justify-content: flex-start;
+    gap: 1rem;
+  }
+}
+
+.socialButton {
+  padding: 0.5rem 1rem;
+  color: white;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.emptyState {
+  padding: 2rem;
+  text-align: center;
+  background: var(--surface);
+  border-radius: 12px;
+  color: var(--muted);
+}
+
+@media (min-width: 768px) {
+  .emptyState {
+    padding: 3rem;
+  }
+}
+
