@@ -92,7 +92,7 @@ export default function BookingForm({ roomId, roomPrice, initialStartDate = '', 
                 padding: '2rem',
                 textAlign: 'center',
                 background: '#dcfce7',
-                borderRadius: '8px',
+                borderRadius: '0',
                 color: '#16a34a'
             }}>
                 <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>✓</div>
@@ -238,7 +238,7 @@ export default function BookingForm({ roomId, roomPrice, initialStartDate = '', 
                 <div style={{
                     padding: '1.25rem',
                     background: 'var(--surface)',
-                    borderRadius: '8px',
+                    borderRadius: '0',
                     marginBottom: '1.5rem',
                     fontSize: '1rem'
                 }}>

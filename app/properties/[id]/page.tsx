@@ -72,7 +72,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
                     <PropertyMap address={property.address} />
                 )}
 
-                <h2 style={{ fontSize: '2rem', marginBottom: '2rem' }}>Available Rooms</h2>
+                <h2 className="section-title" style={{ fontSize: '2rem', marginBottom: '2rem' }}>Available Rooms</h2>
                 <div style={{ display: 'grid', gap: '2rem' }}>
                     {property.rooms.map((room: any) => (
                         <RoomCard 

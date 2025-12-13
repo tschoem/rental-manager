@@ -16,6 +16,7 @@ async function getOrCreateSiteSettings() {
                 siteUrl: null,
                 siteIcon: "🏠",
                 siteName: "Rental Manager",
+                template: "beach",
                 seoDescription: null,
                 seoKeywords: null,
                 seoAuthor: null,

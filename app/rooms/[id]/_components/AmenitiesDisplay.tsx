@@ -21,7 +21,7 @@ export default function AmenitiesDisplay({ amenities }: AmenitiesDisplayProps) {
                         alignItems: 'center',
                         gap: '0.75rem',
                         padding: '0.75rem',
-                        borderRadius: '8px',
+                        borderRadius: '0',
                         background: 'var(--surface)',
                         transition: 'background 0.2s ease'
                     }}

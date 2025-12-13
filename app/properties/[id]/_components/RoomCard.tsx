@@ -30,7 +30,7 @@ export default function RoomCard({ room, propertyImages = [] }: RoomCardProps) {
         : (propertyImages.length > 0 ? propertyImages.map(url => ({ url })) : []);
 
     return (
-        <div style={{ border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', background: 'white' }}>
+        <div style={{ border: '1px solid var(--border)', borderRadius: '0', overflow: 'hidden', background: 'white' }}>
             {/* Image Gallery */}
             <div style={{ height: '400px', background: 'var(--surface)', position: 'relative' }}>
                 {images.length > 0 ? (

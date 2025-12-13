@@ -15,11 +15,11 @@ export default function PropertyMap({ address }: PropertyMapProps) {
 
     return (
         <div style={{ marginBottom: '4rem' }}>
-            <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem' }}>Location</h2>
+            <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', textAlign: 'center' }}>Location</h2>
             <div style={{
                 width: '100%',
                 height: '450px',
-                borderRadius: '12px',
+                borderRadius: '0',
                 overflow: 'hidden',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                 border: '1px solid var(--border)'

@@ -16,6 +16,7 @@ async function getOrCreateSiteSettings() {
                 siteUrl: null,
                 siteIcon: "🏠",
                 siteName: "Rental Manager",
+                template: "beach",
                 seoDescription: null,
                 seoKeywords: null,
                 seoAuthor: null,
@@ -65,6 +66,15 @@ export async function updateSiteSettings(formData: FormData) {
     }
     if (formData.has("singlePropertyMode")) {
         updateData.singlePropertyMode = formData.get("singlePropertyMode") === "true";
+    }
+    if (formData.has("template")) {
+        updateData.template = (formData.get("template") as string)?.trim() || "beach";
+    }
+    if (formData.has("footerText")) {
+        updateData.footerText = (formData.get("footerText") as string)?.trim() || null;
+    }
+    if (formData.has("footerShowPoweredBy")) {
+        updateData.footerShowPoweredBy = formData.get("footerShowPoweredBy") === "true";
     }
 
     await prisma.siteSettings.update({

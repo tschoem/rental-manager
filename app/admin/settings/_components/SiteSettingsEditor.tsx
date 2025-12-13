@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateSiteSettings } from '../actions';
+import { AVAILABLE_TEMPLATES } from '@/lib/template-constants';
 
 interface SiteSettings {
     id: string;
@@ -10,11 +11,14 @@ interface SiteSettings {
     siteUrl: string | null;
     siteIcon: string | null;
     siteName: string | null;
+    template: string;
     seoDescription: string | null;
     seoKeywords: string | null;
     seoAuthor: string | null;
     currency: string | null;
     currencySymbol: string | null;
+    footerText: string | null;
+    footerShowPoweredBy: boolean;
 }
 
 interface SiteSettingsEditorProps {
@@ -229,6 +233,37 @@ export default function SiteSettingsEditor({ settings }: SiteSettingsEditorProps
                 </form>
             </div>
 
+            {/* Template Selection */}
+            <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Site Template</h2>
+                
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }} key={`template-${settings.id}`}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <label htmlFor="template" style={{ fontWeight: 500 }}>Choose Template</label>
+                        <select
+                            id="template"
+                            name="template"
+                            key={`template-${settings.template || 'beach'}`}
+                            defaultValue={settings.template || 'beach'}
+                            style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem' }}
+                        >
+                            {AVAILABLE_TEMPLATES.map((template) => (
+                                <option key={template.id} value={template.id}>
+                                    {template.name} - {template.description}
+                                </option>
+                            ))}
+                        </select>
+                        <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+                            Select the visual theme for your website. Changes will apply immediately.
+                        </p>
+                    </div>
+
+                    <button type="submit" className="btn btn-primary" disabled={isPending}>
+                        {isPending ? 'Saving...' : 'Save Template'}
+                    </button>
+                </form>
+            </div>
+
             {/* Site Mode */}
             <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
                 <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Site Mode</h2>
@@ -253,6 +288,50 @@ export default function SiteSettingsEditor({ settings }: SiteSettingsEditorProps
 
                     <button type="submit" className="btn btn-primary" disabled={isPending}>
                         {isPending ? 'Saving...' : 'Save Site Mode'}
+                    </button>
+                </form>
+            </div>
+
+            {/* Footer Settings */}
+            <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Footer Settings</h2>
+                
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }} key={`footer-${settings.id}`}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <label htmlFor="footerText" style={{ fontWeight: 500 }}>Footer Text</label>
+                        <textarea
+                            id="footerText"
+                            name="footerText"
+                            key={`footerText-${settings.footerText || ''}`}
+                            defaultValue={settings.footerText || ''}
+                            rows={3}
+                            placeholder="© 2025 Your Company Name. All rights reserved."
+                            style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', fontFamily: 'inherit', lineHeight: 1.6 }}
+                        />
+                        <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+                            Custom text to display in the footer. Leave empty to use default footer.
+                        </p>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <input
+                            type="checkbox"
+                            id="footerShowPoweredBy"
+                            name="footerShowPoweredBy"
+                            key={`footerShowPoweredBy-${settings.footerShowPoweredBy ?? true}`}
+                            defaultChecked={settings.footerShowPoweredBy ?? true}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                        />
+                        <label htmlFor="footerShowPoweredBy" style={{ fontWeight: 500, cursor: 'pointer' }}>
+                            Show "Powered by Rental Manager" link
+                        </label>
+                    </div>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+                        When enabled, shows a small "Powered by Rental Manager" link below your custom footer text.
+                    </p>
+
+                    <button type="submit" className="btn btn-primary" disabled={isPending}>
+                        {isPending ? 'Saving...' : 'Save Footer Settings'}
                     </button>
                 </form>
             </div>

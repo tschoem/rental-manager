@@ -80,10 +80,10 @@ export default async function LocationPage() {
             }}>
               <div>
                 {settings.area1Title && (
-                  <h2 className="section-title">{settings.area1Title}</h2>
+                  <h2 className="section-title" style={{ textAlign: 'center' }}>{settings.area1Title}</h2>
                 )}
                 {settings.area1Subtitle && (
-                  <p className="section-subtitle" style={{ margin: '0 0 1.5rem 0', textAlign: 'left' }}>
+                  <p className="section-subtitle" style={{ margin: '0 0 1.5rem 0', textAlign: 'center' }}>
                     {settings.area1Subtitle}
                   </p>
                 )}
@@ -100,7 +100,7 @@ export default async function LocationPage() {
                     alt={settings.area1Title || "Area 1"}
                     style={{
                       width: '100%',
-                      borderRadius: '12px',
+                      borderRadius: '0',
                       boxShadow: 'var(--shadow-lg)'
                     }}
                   />
@@ -124,10 +124,10 @@ export default async function LocationPage() {
             }}>
               <div style={{ direction: 'ltr' }}>
                 {settings.area2Title && (
-                  <h2 className="section-title">{settings.area2Title}</h2>
+                  <h2 className="section-title" style={{ textAlign: 'center' }}>{settings.area2Title}</h2>
                 )}
                 {settings.area2Subtitle && (
-                  <p className="section-subtitle" style={{ margin: '0 0 1.5rem 0', textAlign: 'left' }}>
+                  <p className="section-subtitle" style={{ margin: '0 0 1.5rem 0', textAlign: 'center' }}>
                     {settings.area2Subtitle}
                   </p>
                 )}
@@ -144,7 +144,7 @@ export default async function LocationPage() {
                     alt={settings.area2Title || "Area 2"}
                     style={{
                       width: '100%',
-                      borderRadius: '12px',
+                      borderRadius: '0',
                       boxShadow: 'var(--shadow-lg)'
                     }}
                   />
@@ -165,7 +165,7 @@ export default async function LocationPage() {
             <div style={{
               width: '100%',
               height: '450px',
-              borderRadius: '12px',
+              borderRadius: '0',
               overflow: 'hidden',
               boxShadow: 'var(--shadow-md)',
               marginTop: '2rem'

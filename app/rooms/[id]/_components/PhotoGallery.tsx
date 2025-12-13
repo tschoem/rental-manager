@@ -52,7 +52,7 @@ export default function PhotoGallery({ images }: PhotoGalleryProps) {
                     style={{
                         width: '100%',
                         aspectRatio: '16/9',
-                        borderRadius: '12px',
+                        borderRadius: '0',
                         overflow: 'hidden',
                         cursor: 'pointer',
                         background: 'var(--surface)',
@@ -132,7 +132,7 @@ export default function PhotoGallery({ images }: PhotoGalleryProps) {
                                         onClick={() => setSelectedIndex(actualIndex)}
                                         style={{
                                             aspectRatio: '16/9',
-                                            borderRadius: '8px',
+                                            borderRadius: '0',
                                             overflow: 'hidden',
                                             cursor: 'pointer',
                                             border: selectedIndex === actualIndex ? '3px solid var(--primary)' : '3px solid transparent',

@@ -43,25 +43,27 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
                 />
 
                 {/* Room Header */}
-                <div style={{ marginBottom: '2rem' }}>
-                    <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>{room.name}</h1>
+                <div style={{ marginBottom: '3rem', textAlign: 'center' }}>
+                    <h1 className="section-title" style={{ fontSize: '2.5rem', marginBottom: '1.5rem' }}>{room.name}</h1>
                     {room.property.address && (
                         <p style={{ fontSize: '1.1rem', color: 'var(--muted)', marginBottom: '1rem' }}>
                             {room.property.address}
                         </p>
                     )}
-                    <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '1.5rem' }}>
                         {room.price && (
-                            <p style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
+                            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0 }}>
                                 €{room.price} <span style={{ fontSize: '1rem', fontWeight: 'normal', color: 'var(--muted)' }}>/ night</span>
                             </p>
                         )}
                         {room.capacity && (
-                            <p style={{ color: 'var(--muted)' }}>
+                            <p style={{ color: 'var(--muted)', margin: 0 }}>
                                 Up to {room.capacity} guests
                             </p>
                         )}
-                        {room.airbnbUrl && room.showAirbnbLink && (
+                    </div>
+                    {room.airbnbUrl && room.showAirbnbLink && (
+                        <div style={{ marginTop: '1rem' }}>
                             <a
                                 href={room.airbnbUrl}
                                 target="_blank"
@@ -75,7 +77,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
                                     background: '#FF5A5F',
                                     color: 'white',
                                     textDecoration: 'none',
-                                    borderRadius: '8px',
+                                    borderRadius: '999px',
                                     fontWeight: 500,
                                     fontSize: '1rem',
                                     transition: 'all 0.2s',
@@ -87,8 +89,8 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
                                 </svg>
                                 View on Airbnb
                             </a>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Photo Gallery - Prioritize room images, fallback to property images */}
@@ -117,7 +119,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
                         {/* Description */}
                         {room.description && (
                             <div style={{ marginBottom: '3rem' }}>
-                                <h2 style={{ fontSize: '1.75rem', marginBottom: '1rem' }}>About this room</h2>
+                                <h2 className="section-title" style={{ fontSize: '1.75rem', marginBottom: '1rem' }}>About this room</h2>
                                 <p style={{ lineHeight: 1.8, fontSize: '1.1rem', color: 'var(--foreground)' }}>
                                     {room.description}
                                 </p>
@@ -127,7 +129,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
                         {/* Amenities */}
                         {amenitiesList.length > 0 && (
                             <div style={{ marginBottom: '3rem' }}>
-                                <h2 style={{ fontSize: '1.75rem', marginBottom: '1.5rem' }}>Amenities</h2>
+                                <h2 className="section-title" style={{ fontSize: '1.75rem', marginBottom: '1.5rem' }}>Amenities</h2>
                                 <AmenitiesDisplay amenities={amenitiesList} />
                             </div>
                         )}
@@ -137,12 +139,12 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
                     <div style={{ position: 'sticky', top: '2rem', alignSelf: 'start' }}>
                         <div style={{
                             border: '1px solid var(--border)',
-                            borderRadius: '12px',
+                            borderRadius: '0',
                             padding: '2rem',
                             background: 'white',
                             boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                         }}>
-                            <h2 style={{ fontSize: '1.75rem', marginBottom: '1.5rem', fontWeight: 600 }}>Book this room</h2>
+                            <h2 className="section-title" style={{ fontSize: '1.75rem', marginBottom: '1.5rem', fontWeight: 600 }}>Book this room</h2>
                             <BookingSection 
                                 roomId={room.id} 
                                 roomPrice={room.price} 

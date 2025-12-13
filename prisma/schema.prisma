@@ -79,6 +79,9 @@ model SiteSettings {
   siteIcon           String?  // Emoji icon for the site
   siteName           String?  // Site name displayed in header
   
+  // Template
+  template           String   @default("beach") // Template identifier (beach, countryside, etc.)
+  
   // SEO Settings
   seoDescription     String?  // Meta description for SEO
   seoKeywords        String?  // Meta keywords (comma-separated)
@@ -87,6 +90,10 @@ model SiteSettings {
   // Currency
   currency           String?  // Currency code (EUR, USD, GBP, etc.)
   currencySymbol     String?  // Currency symbol
+  
+  // Footer Settings
+  footerText         String?  // Custom footer text
+  footerShowPoweredBy Boolean @default(true) // Show "Powered by Rental Manager" link
   
   createdAt          DateTime?
   updatedAt          DateTime?
