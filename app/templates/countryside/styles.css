@@ -45,6 +45,14 @@
   --radius-md: 0;
   --radius-lg: 0;
   --radius-full: 9999px;
+  --card-radius: 0;
+  --image-radius: 0;
+
+  /* Alignment */
+  --heading-align: center;
+
+  /* Accent color for borders/underlines - green for countryside */
+  --accent-border-color: #56B665;
 
   /* Shadows */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -88,6 +96,7 @@ h6 {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   position: relative;
+  text-align: center;
 }
 
 h1 {
@@ -296,7 +305,12 @@ button {
 }
 
 /* Global centered headers for countryside template */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   text-align: center;
 }
 

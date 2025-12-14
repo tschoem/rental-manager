@@ -100,7 +100,7 @@ export default async function LocationPage() {
                     alt={settings.area1Title || "Area 1"}
                     style={{
                       width: '100%',
-                      borderRadius: '0',
+                      borderRadius: 'var(--image-radius, 12px)',
                       boxShadow: 'var(--shadow-lg)'
                     }}
                   />
@@ -144,7 +144,7 @@ export default async function LocationPage() {
                     alt={settings.area2Title || "Area 2"}
                     style={{
                       width: '100%',
-                      borderRadius: '0',
+                      borderRadius: 'var(--image-radius, 12px)',
                       boxShadow: 'var(--shadow-lg)'
                     }}
                   />
@@ -165,7 +165,7 @@ export default async function LocationPage() {
             <div style={{
               width: '100%',
               height: '450px',
-              borderRadius: '0',
+              borderRadius: 'var(--image-radius, 12px)',
               overflow: 'hidden',
               boxShadow: 'var(--shadow-md)',
               marginTop: '2rem'
