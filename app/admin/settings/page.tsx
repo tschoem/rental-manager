@@ -15,6 +15,8 @@ async function getOrCreateSiteSettings() {
                 singlePropertyMode: false,
                 siteUrl: null,
                 siteIcon: "🏠",
+                siteIconType: "emoji",
+                siteIconImageUrl: null,
                 siteName: "Rental Manager",
                 template: "beach",
                 seoDescription: null,

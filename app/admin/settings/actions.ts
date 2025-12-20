@@ -15,6 +15,8 @@ async function getOrCreateSiteSettings() {
                 singlePropertyMode: false,
                 siteUrl: null,
                 siteIcon: "🏠",
+                siteIconType: "emoji",
+                siteIconImageUrl: null,
                 siteName: "Rental Manager",
                 template: "beach",
                 seoDescription: null,
@@ -45,6 +47,12 @@ export async function updateSiteSettings(formData: FormData) {
     }
     if (formData.has("siteIcon")) {
         updateData.siteIcon = (formData.get("siteIcon") as string)?.trim() || null;
+    }
+    if (formData.has("siteIconImageUrl")) {
+        updateData.siteIconImageUrl = (formData.get("siteIconImageUrl") as string)?.trim() || null;
+    }
+    if (formData.has("siteIconType")) {
+        updateData.siteIconType = (formData.get("siteIconType") as string)?.trim() || "emoji";
     }
     if (formData.has("siteName")) {
         updateData.siteName = (formData.get("siteName") as string)?.trim() || null;

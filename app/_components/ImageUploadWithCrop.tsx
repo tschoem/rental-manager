@@ -20,6 +20,7 @@ export default function ImageUploadWithCrop({
 }: ImageUploadWithCropProps) {
     const [uploading, setUploading] = useState(false);
     const [imageSrc, setImageSrc] = useState<string | null>(null);
+    const [originalFileType, setOriginalFileType] = useState<string>('image/jpeg');
     const [crop, setCrop] = useState({ x: 0, y: 0 });
     const [zoom, setZoom] = useState(1);
     const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
@@ -51,6 +52,8 @@ export default function ImageUploadWithCrop({
         const reader = new FileReader();
         reader.onload = () => {
             setImageSrc(reader.result as string);
+            // Store original file type to preserve format (especially for PNG/WebP transparency)
+            setOriginalFileType(file.type || 'image/jpeg');
             // Reset crop position - react-easy-crop will center automatically when aspect ratio is set
             setCrop({ x: 0, y: 0 });
             setZoom(1);
@@ -70,7 +73,8 @@ export default function ImageUploadWithCrop({
 
     const getCroppedImg = async (
         imageSrc: string,
-        pixelCrop: Area
+        pixelCrop: Area,
+        fileType: string
     ): Promise<Blob> => {
         const image = await createImage(imageSrc);
         const canvas = document.createElement('canvas');
@@ -82,6 +86,12 @@ export default function ImageUploadWithCrop({
 
         canvas.width = pixelCrop.width;
         canvas.height = pixelCrop.height;
+
+        // For PNG/WebP, preserve transparency by not filling with white
+        if (fileType === 'image/png' || fileType === 'image/webp') {
+            // Clear canvas to transparent
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
 
         ctx.drawImage(
             image,
@@ -96,13 +106,17 @@ export default function ImageUploadWithCrop({
         );
 
         return new Promise((resolve, reject) => {
+            // Use original file type to preserve format and transparency
+            // For PNG/WebP, use quality 1.0 to preserve transparency
+            // For JPEG, use 0.9 for reasonable file size
+            const quality = (fileType === 'image/png' || fileType === 'image/webp') ? 1.0 : 0.9;
             canvas.toBlob((blob) => {
                 if (!blob) {
                     reject(new Error('Canvas is empty'));
                     return;
                 }
                 resolve(blob);
-            }, 'image/jpeg', 0.9);
+            }, fileType, quality);
         });
     };
 
@@ -111,11 +125,21 @@ export default function ImageUploadWithCrop({
 
         setUploading(true);
         try {
-            const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
+            const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels, originalFileType);
+            
+            // Determine file extension based on original file type
+            let extension = 'jpg';
+            if (originalFileType === 'image/png') {
+                extension = 'png';
+            } else if (originalFileType === 'image/webp') {
+                extension = 'webp';
+            } else if (originalFileType === 'image/gif') {
+                extension = 'gif';
+            }
             
             // Create FormData and upload
             const formData = new FormData();
-            formData.append('file', croppedBlob, 'image.jpg');
+            formData.append('file', croppedBlob, `image.${extension}`);
             formData.append('folder', folder);
 
             const response = await fetch('/api/upload-image', {
@@ -132,6 +156,7 @@ export default function ImageUploadWithCrop({
             
             // Reset state
             setImageSrc(null);
+            setOriginalFileType('image/jpeg');
             setShowCrop(false);
             setCrop({ x: 0, y: 0 });
             setZoom(1);
@@ -149,6 +174,7 @@ export default function ImageUploadWithCrop({
 
     const handleCancel = () => {
         setImageSrc(null);
+        setOriginalFileType('image/jpeg');
         setShowCrop(false);
         setCrop({ x: 0, y: 0 });
         setZoom(1);

@@ -1,15 +1,18 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateSiteSettings } from '../actions';
 import { AVAILABLE_TEMPLATES } from '@/lib/template-constants';
+import ImageUploadWithCrop from '@/app/_components/ImageUploadWithCrop';
 
 interface SiteSettings {
     id: string;
     singlePropertyMode: boolean;
     siteUrl: string | null;
     siteIcon: string | null;
+    siteIconImageUrl: string | null;
+    siteIconType: string | null;
     siteName: string | null;
     template: string;
     seoDescription: string | null;
@@ -28,6 +31,16 @@ interface SiteSettingsEditorProps {
 export default function SiteSettingsEditor({ settings }: SiteSettingsEditorProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
+    const [iconType, setIconType] = useState<string>(settings.siteIconType || 'emoji');
+    const [iconImageUrl, setIconImageUrl] = useState<string | null>(settings.siteIconImageUrl);
+
+    // Sync hidden input when iconImageUrl changes
+    useEffect(() => {
+        const hiddenInput = document.getElementById('siteIconImageUrl') as HTMLInputElement;
+        if (hiddenInput) {
+            hiddenInput.value = iconImageUrl || '';
+        }
+    }, [iconImageUrl]);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -90,20 +103,93 @@ export default function SiteSettingsEditor({ settings }: SiteSettingsEditorProps
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        <label htmlFor="siteIcon" style={{ fontWeight: 500 }}>Site Icon (Emoji)</label>
-                        <input
-                            type="text"
-                            id="siteIcon"
-                            name="siteIcon"
-                            key={`siteIcon-${settings.siteIcon || ''}`}
-                            defaultValue={settings.siteIcon || '🏠'}
-                            placeholder="🏠"
-                            maxLength={2}
-                            style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1.5rem', textAlign: 'center', width: '80px' }}
-                        />
-                        <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
-                            An emoji icon displayed in the header next to the site name
-                        </p>
+                        <label style={{ fontWeight: 500 }}>Site Icon Type</label>
+                        <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.5rem' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                                <input
+                                    type="radio"
+                                    name="siteIconType"
+                                    value="emoji"
+                                    checked={iconType === 'emoji'}
+                                    onChange={(e) => setIconType(e.target.value)}
+                                    style={{ cursor: 'pointer' }}
+                                />
+                                <span>Emoji</span>
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                                <input
+                                    type="radio"
+                                    name="siteIconType"
+                                    value="image"
+                                    checked={iconType === 'image'}
+                                    onChange={(e) => setIconType(e.target.value)}
+                                    style={{ cursor: 'pointer' }}
+                                />
+                                <span>Image</span>
+                            </label>
+                        </div>
+                        <input type="hidden" name="siteIconType" value={iconType} />
+                        
+                        {iconType === 'emoji' ? (
+                            <>
+                                <label htmlFor="siteIcon" style={{ fontWeight: 500 }}>Site Icon (Emoji)</label>
+                                <input
+                                    type="text"
+                                    id="siteIcon"
+                                    name="siteIcon"
+                                    key={`siteIcon-${settings.siteIcon || ''}`}
+                                    defaultValue={settings.siteIcon || '🏠'}
+                                    placeholder="🏠"
+                                    maxLength={2}
+                                    style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1.5rem', textAlign: 'center', width: '80px' }}
+                                />
+                                <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+                                    An emoji icon displayed in the header next to the site name and as favicon
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <label style={{ fontWeight: 500 }}>Site Icon (Image)</label>
+                                {iconImageUrl && (
+                                    <div style={{ marginBottom: '1rem' }}>
+                                        <img 
+                                            src={iconImageUrl} 
+                                            alt="Site icon" 
+                                            style={{ 
+                                                width: '64px', 
+                                                height: '64px', 
+                                                objectFit: 'contain',
+                                                border: '1px solid var(--border)',
+                                                borderRadius: '8px',
+                                                padding: '4px'
+                                            }} 
+                                        />
+                                    </div>
+                                )}
+                                <ImageUploadWithCrop
+                                    onUploadComplete={(url) => {
+                                        setIconImageUrl(url);
+                                        // Update hidden input
+                                        const hiddenInput = document.getElementById('siteIconImageUrl') as HTMLInputElement;
+                                        if (hiddenInput) {
+                                            hiddenInput.value = url;
+                                        }
+                                    }}
+                                    folder="site-icons"
+                                    maxSizeMB={2}
+                                    aspectRatio={1}
+                                />
+                                <input 
+                                    type="hidden" 
+                                    id="siteIconImageUrl" 
+                                    name="siteIconImageUrl" 
+                                    value={iconImageUrl || ''} 
+                                />
+                                <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+                                    Upload an image icon (square recommended, max 2MB). Displayed in the header and used as favicon.
+                                </p>
+                            </>
+                        )}
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

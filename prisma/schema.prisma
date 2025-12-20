@@ -77,6 +77,8 @@ model SiteSettings {
   // Site Configuration
   siteUrl            String?  // Full URL of the site (e.g., https://example.com)
   siteIcon           String?  // Emoji icon for the site
+  siteIconImageUrl   String?  // Image URL for the site icon (alternative to emoji)
+  siteIconType       String?  @default("emoji") // "emoji" or "image"
   siteName           String?  // Site name displayed in header
   
   // Template

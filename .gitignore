@@ -57,3 +57,5 @@ prisma/*.db-wal
 
 # chromium binaries (packaged at build time)
 /public/chromium-pack.tar
+
+/public/room-images
