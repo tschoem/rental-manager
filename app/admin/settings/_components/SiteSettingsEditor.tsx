@@ -7,421 +7,466 @@ import { AVAILABLE_TEMPLATES } from '@/lib/template-constants';
 import ImageUploadWithCrop from '@/app/_components/ImageUploadWithCrop';
 
 interface SiteSettings {
-    id: string;
-    singlePropertyMode: boolean;
-    siteUrl: string | null;
-    siteIcon: string | null;
-    siteIconImageUrl: string | null;
-    siteIconType: string | null;
-    siteName: string | null;
-    template: string;
-    seoDescription: string | null;
-    seoKeywords: string | null;
-    seoAuthor: string | null;
-    currency: string | null;
-    currencySymbol: string | null;
-    footerText: string | null;
-    footerShowPoweredBy: boolean;
+  id: string;
+  singlePropertyMode: boolean;
+  siteUrl: string | null;
+  siteIcon: string | null;
+  siteIconImageUrl: string | null;
+  siteIconType: string | null;
+  siteName: string | null;
+  template: string;
+  seoDescription: string | null;
+  seoKeywords: string | null;
+  seoAuthor: string | null;
+  currency: string | null;
+  currencySymbol: string | null;
+  footerText: string | null;
+  footerShowPoweredBy: boolean;
+  customHeadCode: string | null;
+  customBodyCode: string | null;
 }
 
 interface SiteSettingsEditorProps {
-    settings: SiteSettings;
+  settings: SiteSettings;
 }
 
 export default function SiteSettingsEditor({ settings }: SiteSettingsEditorProps) {
-    const router = useRouter();
-    const [isPending, startTransition] = useTransition();
-    const [iconType, setIconType] = useState<string>(settings.siteIconType || 'emoji');
-    const [iconImageUrl, setIconImageUrl] = useState<string | null>(settings.siteIconImageUrl);
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [iconType, setIconType] = useState<string>(settings.siteIconType || 'emoji');
+  const [iconImageUrl, setIconImageUrl] = useState<string | null>(settings.siteIconImageUrl);
 
-    // Sync hidden input when iconImageUrl changes
-    useEffect(() => {
-        const hiddenInput = document.getElementById('siteIconImageUrl') as HTMLInputElement;
-        if (hiddenInput) {
-            hiddenInput.value = iconImageUrl || '';
-        }
-    }, [iconImageUrl]);
+  // Sync hidden input when iconImageUrl changes
+  useEffect(() => {
+    const hiddenInput = document.getElementById('siteIconImageUrl') as HTMLInputElement;
+    if (hiddenInput) {
+      hiddenInput.value = iconImageUrl || '';
+    }
+  }, [iconImageUrl]);
 
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        
-        startTransition(async () => {
-            try {
-                await updateSiteSettings(formData);
-                router.refresh();
-            } catch (error) {
-                alert('Failed to update site settings');
-            }
-        });
-    };
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
 
-    // Common currency options
-    const currencies = [
-        { code: 'EUR', symbol: '€', name: 'Euro' },
-        { code: 'USD', symbol: '$', name: 'US Dollar' },
-        { code: 'GBP', symbol: '£', name: 'British Pound' },
-        { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
-        { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
-        { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
-        { code: 'CHF', symbol: 'CHF', name: 'Swiss Franc' },
-        { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
-    ];
+    startTransition(async () => {
+      try {
+        await updateSiteSettings(formData);
+        router.refresh();
+      } catch (error) {
+        alert('Failed to update site settings');
+      }
+    });
+  };
 
-    const handleCurrencyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const selectedCurrency = currencies.find(c => c.code === e.target.value);
-        if (selectedCurrency) {
-            // Update the currency symbol field
-            const symbolInput = document.getElementById('currencySymbol') as HTMLInputElement;
-            if (symbolInput) {
-                symbolInput.value = selectedCurrency.symbol;
-            }
-        }
-    };
+  // Common currency options
+  const currencies = [
+    { code: 'EUR', symbol: '€', name: 'Euro' },
+    { code: 'USD', symbol: '$', name: 'US Dollar' },
+    { code: 'GBP', symbol: '£', name: 'British Pound' },
+    { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
+    { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
+    { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
+    { code: 'CHF', symbol: 'CHF', name: 'Swiss Franc' },
+    { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
+  ];
 
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            {/* Basic Site Information */}
-            <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Basic Site Information</h2>
-                
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }} key={`basic-${settings.id}`}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        <label htmlFor="siteUrl" style={{ fontWeight: 500 }}>Site URL</label>
-                        <input
-                            type="url"
-                            id="siteUrl"
-                            name="siteUrl"
-                            key={`siteUrl-${settings.siteUrl || ''}`}
-                            defaultValue={settings.siteUrl || ''}
-                            placeholder="https://example.com"
-                            style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem' }}
-                        />
-                        <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
-                            The full URL of your website (used for SEO and social sharing)
-                        </p>
-                    </div>
+  const handleCurrencyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedCurrency = currencies.find(c => c.code === e.target.value);
+    if (selectedCurrency) {
+      // Update the currency symbol field
+      const symbolInput = document.getElementById('currencySymbol') as HTMLInputElement;
+      if (symbolInput) {
+        symbolInput.value = selectedCurrency.symbol;
+      }
+    }
+  };
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        <label style={{ fontWeight: 500 }}>Site Icon Type</label>
-                        <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.5rem' }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                                <input
-                                    type="radio"
-                                    name="siteIconType"
-                                    value="emoji"
-                                    checked={iconType === 'emoji'}
-                                    onChange={(e) => setIconType(e.target.value)}
-                                    style={{ cursor: 'pointer' }}
-                                />
-                                <span>Emoji</span>
-                            </label>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                                <input
-                                    type="radio"
-                                    name="siteIconType"
-                                    value="image"
-                                    checked={iconType === 'image'}
-                                    onChange={(e) => setIconType(e.target.value)}
-                                    style={{ cursor: 'pointer' }}
-                                />
-                                <span>Image</span>
-                            </label>
-                        </div>
-                        <input type="hidden" name="siteIconType" value={iconType} />
-                        
-                        {iconType === 'emoji' ? (
-                            <>
-                                <label htmlFor="siteIcon" style={{ fontWeight: 500 }}>Site Icon (Emoji)</label>
-                                <input
-                                    type="text"
-                                    id="siteIcon"
-                                    name="siteIcon"
-                                    key={`siteIcon-${settings.siteIcon || ''}`}
-                                    defaultValue={settings.siteIcon || '🏠'}
-                                    placeholder="🏠"
-                                    maxLength={2}
-                                    style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1.5rem', textAlign: 'center', width: '80px' }}
-                                />
-                                <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
-                                    An emoji icon displayed in the header next to the site name and as favicon
-                                </p>
-                            </>
-                        ) : (
-                            <>
-                                <label style={{ fontWeight: 500 }}>Site Icon (Image)</label>
-                                {iconImageUrl && (
-                                    <div style={{ marginBottom: '1rem' }}>
-                                        <img 
-                                            src={iconImageUrl} 
-                                            alt="Site icon" 
-                                            style={{ 
-                                                width: '64px', 
-                                                height: '64px', 
-                                                objectFit: 'contain',
-                                                border: '1px solid var(--border)',
-                                                borderRadius: '8px',
-                                                padding: '4px'
-                                            }} 
-                                        />
-                                    </div>
-                                )}
-                                <ImageUploadWithCrop
-                                    onUploadComplete={(url) => {
-                                        setIconImageUrl(url);
-                                        // Update hidden input
-                                        const hiddenInput = document.getElementById('siteIconImageUrl') as HTMLInputElement;
-                                        if (hiddenInput) {
-                                            hiddenInput.value = url;
-                                        }
-                                    }}
-                                    folder="site-icons"
-                                    maxSizeMB={2}
-                                    aspectRatio={1}
-                                />
-                                <input 
-                                    type="hidden" 
-                                    id="siteIconImageUrl" 
-                                    name="siteIconImageUrl" 
-                                    value={iconImageUrl || ''} 
-                                />
-                                <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
-                                    Upload an image icon (square recommended, max 2MB). Displayed in the header and used as favicon.
-                                </p>
-                            </>
-                        )}
-                    </div>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      {/* Basic Site Information */}
+      <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Basic Site Information</h2>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        <label htmlFor="siteName" style={{ fontWeight: 500 }}>Site Name</label>
-                        <input
-                            type="text"
-                            id="siteName"
-                            name="siteName"
-                            key={`siteName-${settings.siteName || ''}`}
-                            defaultValue={settings.siteName || 'Rental Manager'}
-                            placeholder="Rental Manager"
-                            style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem' }}
-                        />
-                        <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
-                            The name displayed in the header and browser tab
-                        </p>
-                    </div>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }} key={`basic-${settings.id}`}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label htmlFor="siteUrl" style={{ fontWeight: 500 }}>Site URL</label>
+            <input
+              type="url"
+              id="siteUrl"
+              name="siteUrl"
+              key={`siteUrl-${settings.siteUrl || ''}`}
+              defaultValue={settings.siteUrl || ''}
+              placeholder="https://example.com"
+              style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem' }}
+            />
+            <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+              The full URL of your website (used for SEO and social sharing)
+            </p>
+          </div>
 
-                    <button type="submit" className="btn btn-primary" disabled={isPending}>
-                        {isPending ? 'Saving...' : 'Save Basic Settings'}
-                    </button>
-                </form>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label style={{ fontWeight: 500 }}>Site Icon Type</label>
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.5rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="siteIconType"
+                  value="emoji"
+                  checked={iconType === 'emoji'}
+                  onChange={(e) => setIconType(e.target.value)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <span>Emoji</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="siteIconType"
+                  value="image"
+                  checked={iconType === 'image'}
+                  onChange={(e) => setIconType(e.target.value)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <span>Image</span>
+              </label>
+            </div>
+            <input type="hidden" name="siteIconType" value={iconType} />
+
+            {iconType === 'emoji' ? (
+              <>
+                <label htmlFor="siteIcon" style={{ fontWeight: 500 }}>Site Icon (Emoji)</label>
+                <input
+                  type="text"
+                  id="siteIcon"
+                  name="siteIcon"
+                  key={`siteIcon-${settings.siteIcon || ''}`}
+                  defaultValue={settings.siteIcon || '🏠'}
+                  placeholder="🏠"
+                  maxLength={2}
+                  style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1.5rem', textAlign: 'center', width: '80px' }}
+                />
+                <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+                  An emoji icon displayed in the header next to the site name and as favicon
+                </p>
+              </>
+            ) : (
+              <>
+                <label style={{ fontWeight: 500 }}>Site Icon (Image)</label>
+                {iconImageUrl && (
+                  <div style={{ marginBottom: '1rem' }}>
+                    <img
+                      src={iconImageUrl}
+                      alt="Site icon"
+                      style={{
+                        width: '64px',
+                        height: '64px',
+                        objectFit: 'contain',
+                        border: '1px solid var(--border)',
+                        borderRadius: '8px',
+                        padding: '4px'
+                      }}
+                    />
+                  </div>
+                )}
+                <ImageUploadWithCrop
+                  onUploadComplete={(url) => {
+                    setIconImageUrl(url);
+                    // Update hidden input
+                    const hiddenInput = document.getElementById('siteIconImageUrl') as HTMLInputElement;
+                    if (hiddenInput) {
+                      hiddenInput.value = url;
+                    }
+                  }}
+                  folder="site-icons"
+                  maxSizeMB={2}
+                  aspectRatio={1}
+                />
+                <input
+                  type="hidden"
+                  id="siteIconImageUrl"
+                  name="siteIconImageUrl"
+                  value={iconImageUrl || ''}
+                />
+                <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+                  Upload an image icon (square recommended, max 2MB). Displayed in the header and used as favicon.
+                </p>
+              </>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label htmlFor="siteName" style={{ fontWeight: 500 }}>Site Name</label>
+            <input
+              type="text"
+              id="siteName"
+              name="siteName"
+              key={`siteName-${settings.siteName || ''}`}
+              defaultValue={settings.siteName || 'Rental Manager'}
+              placeholder="Rental Manager"
+              style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem' }}
+            />
+            <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+              The name displayed in the header and browser tab
+            </p>
+          </div>
+
+          <button type="submit" className="btn btn-primary" disabled={isPending}>
+            {isPending ? 'Saving...' : 'Save Basic Settings'}
+          </button>
+        </form>
+      </div>
+
+      {/* SEO Settings */}
+      <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>SEO Settings</h2>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }} key={`seo-${settings.id}`}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label htmlFor="seoDescription" style={{ fontWeight: 500 }}>Meta Description</label>
+            <textarea
+              id="seoDescription"
+              name="seoDescription"
+              key={`seoDescription-${settings.seoDescription || ''}`}
+              defaultValue={settings.seoDescription || ''}
+              rows={3}
+              placeholder="A brief description of your site for search engines"
+              maxLength={160}
+              style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', fontFamily: 'inherit', lineHeight: 1.6 }}
+            />
+            <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+              Recommended: 150-160 characters. This appears in search engine results.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label htmlFor="seoKeywords" style={{ fontWeight: 500 }}>Meta Keywords</label>
+            <input
+              type="text"
+              id="seoKeywords"
+              name="seoKeywords"
+              key={`seoKeywords-${settings.seoKeywords || ''}`}
+              defaultValue={settings.seoKeywords || ''}
+              placeholder="rental, property, accommodation, booking"
+              style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem' }}
+            />
+            <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+              Comma-separated keywords relevant to your site
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label htmlFor="seoAuthor" style={{ fontWeight: 500 }}>Site Author</label>
+            <input
+              type="text"
+              id="seoAuthor"
+              name="seoAuthor"
+              key={`seoAuthor-${settings.seoAuthor || ''}`}
+              defaultValue={settings.seoAuthor || ''}
+              placeholder="Your Name or Company"
+              style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem' }}
+            />
+          </div>
+
+          <button type="submit" className="btn btn-primary" disabled={isPending}>
+            {isPending ? 'Saving...' : 'Save SEO Settings'}
+          </button>
+        </form>
+      </div>
+
+      {/* Currency Settings */}
+      <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Currency Settings</h2>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }} key={`currency-${settings.id}`}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label htmlFor="currency" style={{ fontWeight: 500 }}>Currency Code</label>
+              <select
+                id="currency"
+                name="currency"
+                key={`currency-${settings.currency || ''}`}
+                defaultValue={settings.currency || 'EUR'}
+                onChange={handleCurrencyChange}
+                style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem' }}
+              >
+                {currencies.map((curr) => (
+                  <option key={curr.code} value={curr.code}>
+                    {curr.code} - {curr.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {/* SEO Settings */}
-            <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>SEO Settings</h2>
-                
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }} key={`seo-${settings.id}`}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        <label htmlFor="seoDescription" style={{ fontWeight: 500 }}>Meta Description</label>
-                        <textarea
-                            id="seoDescription"
-                            name="seoDescription"
-                            key={`seoDescription-${settings.seoDescription || ''}`}
-                            defaultValue={settings.seoDescription || ''}
-                            rows={3}
-                            placeholder="A brief description of your site for search engines"
-                            maxLength={160}
-                            style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', fontFamily: 'inherit', lineHeight: 1.6 }}
-                        />
-                        <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
-                            Recommended: 150-160 characters. This appears in search engine results.
-                        </p>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        <label htmlFor="seoKeywords" style={{ fontWeight: 500 }}>Meta Keywords</label>
-                        <input
-                            type="text"
-                            id="seoKeywords"
-                            name="seoKeywords"
-                            key={`seoKeywords-${settings.seoKeywords || ''}`}
-                            defaultValue={settings.seoKeywords || ''}
-                            placeholder="rental, property, accommodation, booking"
-                            style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem' }}
-                        />
-                        <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
-                            Comma-separated keywords relevant to your site
-                        </p>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        <label htmlFor="seoAuthor" style={{ fontWeight: 500 }}>Site Author</label>
-                        <input
-                            type="text"
-                            id="seoAuthor"
-                            name="seoAuthor"
-                            key={`seoAuthor-${settings.seoAuthor || ''}`}
-                            defaultValue={settings.seoAuthor || ''}
-                            placeholder="Your Name or Company"
-                            style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem' }}
-                        />
-                    </div>
-
-                    <button type="submit" className="btn btn-primary" disabled={isPending}>
-                        {isPending ? 'Saving...' : 'Save SEO Settings'}
-                    </button>
-                </form>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label htmlFor="currencySymbol" style={{ fontWeight: 500 }}>Currency Symbol</label>
+              <input
+                type="text"
+                id="currencySymbol"
+                name="currencySymbol"
+                key={`currencySymbol-${settings.currencySymbol || ''}`}
+                defaultValue={settings.currencySymbol || '€'}
+                placeholder="€"
+                maxLength={5}
+                style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem' }}
+              />
+              <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+                Symbol used to display prices (e.g., €, $, £)
+              </p>
             </div>
+          </div>
 
-            {/* Currency Settings */}
-            <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Currency Settings</h2>
-                
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }} key={`currency-${settings.id}`}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            <label htmlFor="currency" style={{ fontWeight: 500 }}>Currency Code</label>
-                            <select
-                                id="currency"
-                                name="currency"
-                                key={`currency-${settings.currency || ''}`}
-                                defaultValue={settings.currency || 'EUR'}
-                                onChange={handleCurrencyChange}
-                                style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem' }}
-                            >
-                                {currencies.map((curr) => (
-                                    <option key={curr.code} value={curr.code}>
-                                        {curr.code} - {curr.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+          <button type="submit" className="btn btn-primary" disabled={isPending}>
+            {isPending ? 'Saving...' : 'Save Currency Settings'}
+          </button>
+        </form>
+      </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            <label htmlFor="currencySymbol" style={{ fontWeight: 500 }}>Currency Symbol</label>
-                            <input
-                                type="text"
-                                id="currencySymbol"
-                                name="currencySymbol"
-                                key={`currencySymbol-${settings.currencySymbol || ''}`}
-                                defaultValue={settings.currencySymbol || '€'}
-                                placeholder="€"
-                                maxLength={5}
-                                style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem' }}
-                            />
-                            <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
-                                Symbol used to display prices (e.g., €, $, £)
-                            </p>
-                        </div>
-                    </div>
+      {/* Template Selection */}
+      <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Site Template</h2>
 
-                    <button type="submit" className="btn btn-primary" disabled={isPending}>
-                        {isPending ? 'Saving...' : 'Save Currency Settings'}
-                    </button>
-                </form>
-            </div>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }} key={`template-${settings.id}`}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label htmlFor="template" style={{ fontWeight: 500 }}>Choose Template</label>
+            <select
+              id="template"
+              name="template"
+              key={`template-${settings.template || 'beach'}`}
+              defaultValue={settings.template || 'beach'}
+              style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem' }}
+            >
+              {AVAILABLE_TEMPLATES.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name} - {template.description}
+                </option>
+              ))}
+            </select>
+            <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+              Select the visual theme for your website. Changes will apply immediately.
+            </p>
+          </div>
 
-            {/* Template Selection */}
-            <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Site Template</h2>
-                
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }} key={`template-${settings.id}`}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        <label htmlFor="template" style={{ fontWeight: 500 }}>Choose Template</label>
-                        <select
-                            id="template"
-                            name="template"
-                            key={`template-${settings.template || 'beach'}`}
-                            defaultValue={settings.template || 'beach'}
-                            style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem' }}
-                        >
-                            {AVAILABLE_TEMPLATES.map((template) => (
-                                <option key={template.id} value={template.id}>
-                                    {template.name} - {template.description}
-                                </option>
-                            ))}
-                        </select>
-                        <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
-                            Select the visual theme for your website. Changes will apply immediately.
-                        </p>
-                    </div>
+          <button type="submit" className="btn btn-primary" disabled={isPending}>
+            {isPending ? 'Saving...' : 'Save Template'}
+          </button>
+        </form>
+      </div>
 
-                    <button type="submit" className="btn btn-primary" disabled={isPending}>
-                        {isPending ? 'Saving...' : 'Save Template'}
-                    </button>
-                </form>
-            </div>
+      {/* Site Mode */}
+      <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Site Mode</h2>
 
-            {/* Site Mode */}
-            <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Site Mode</h2>
-                
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }} key={`mode-${settings.id}`}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <input
-                            type="checkbox"
-                            id="singlePropertyMode"
-                            name="singlePropertyMode"
-                            key={`singlePropertyMode-${settings.singlePropertyMode}`}
-                            defaultChecked={settings.singlePropertyMode}
-                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                        />
-                        <label htmlFor="singlePropertyMode" style={{ fontWeight: 500, cursor: 'pointer' }}>
-                            Single Property Mode
-                        </label>
-                    </div>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
-                        When enabled, the site displays rooms directly instead of properties. Useful for single-property rentals.
-                    </p>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }} key={`mode-${settings.id}`}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <input
+              type="checkbox"
+              id="singlePropertyMode"
+              name="singlePropertyMode"
+              key={`singlePropertyMode-${settings.singlePropertyMode}`}
+              defaultChecked={settings.singlePropertyMode}
+              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+            />
+            <label htmlFor="singlePropertyMode" style={{ fontWeight: 500, cursor: 'pointer' }}>
+              Single Property Mode
+            </label>
+          </div>
+          <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+            When enabled, the site displays rooms directly instead of properties. Useful for single-property rentals.
+          </p>
 
-                    <button type="submit" className="btn btn-primary" disabled={isPending}>
-                        {isPending ? 'Saving...' : 'Save Site Mode'}
-                    </button>
-                </form>
-            </div>
+          <button type="submit" className="btn btn-primary" disabled={isPending}>
+            {isPending ? 'Saving...' : 'Save Site Mode'}
+          </button>
+        </form>
+      </div>
 
-            {/* Footer Settings */}
-            <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Footer Settings</h2>
-                
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }} key={`footer-${settings.id}`}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        <label htmlFor="footerText" style={{ fontWeight: 500 }}>Footer Text</label>
-                        <textarea
-                            id="footerText"
-                            name="footerText"
-                            key={`footerText-${settings.footerText || ''}`}
-                            defaultValue={settings.footerText || ''}
-                            rows={3}
-                            placeholder="© 2025 Your Company Name. All rights reserved."
-                            style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', fontFamily: 'inherit', lineHeight: 1.6 }}
-                        />
-                        <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
-                            Custom text to display in the footer. Leave empty to use default footer.
-                        </p>
-                    </div>
+      {/* Footer Settings */}
+      <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Footer Settings</h2>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <input
-                            type="checkbox"
-                            id="footerShowPoweredBy"
-                            name="footerShowPoweredBy"
-                            key={`footerShowPoweredBy-${settings.footerShowPoweredBy ?? true}`}
-                            defaultChecked={settings.footerShowPoweredBy ?? true}
-                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                        />
-                        <label htmlFor="footerShowPoweredBy" style={{ fontWeight: 500, cursor: 'pointer' }}>
-                            Show "Powered by Rental Manager" link
-                        </label>
-                    </div>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
-                        When enabled, shows a small "Powered by Rental Manager" link below your custom footer text.
-                    </p>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }} key={`footer-${settings.id}`}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label htmlFor="footerText" style={{ fontWeight: 500 }}>Footer Text</label>
+            <textarea
+              id="footerText"
+              name="footerText"
+              key={`footerText-${settings.footerText || ''}`}
+              defaultValue={settings.footerText || ''}
+              rows={3}
+              placeholder="© 2025 Your Company Name. All rights reserved."
+              style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', fontFamily: 'inherit', lineHeight: 1.6 }}
+            />
+            <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+              Custom text to display in the footer. Leave empty to use default footer.
+            </p>
+          </div>
 
-                    <button type="submit" className="btn btn-primary" disabled={isPending}>
-                        {isPending ? 'Saving...' : 'Save Footer Settings'}
-                    </button>
-                </form>
-            </div>
-        </div>
-    );
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <input
+              type="checkbox"
+              id="footerShowPoweredBy"
+              name="footerShowPoweredBy"
+              key={`footerShowPoweredBy-${settings.footerShowPoweredBy ?? true}`}
+              defaultChecked={settings.footerShowPoweredBy ?? true}
+              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+            />
+            <label htmlFor="footerShowPoweredBy" style={{ fontWeight: 500, cursor: 'pointer' }}>
+              Show "Powered by Rental Manager" link
+            </label>
+          </div>
+          <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+            When enabled, shows a small "Powered by Rental Manager" link below your custom footer text.
+          </p>
+
+          <button type="submit" className="btn btn-primary" disabled={isPending}>
+            {isPending ? 'Saving...' : 'Save Footer Settings'}
+          </button>
+        </form>
+      </div>
+
+      {/* Custom Code Settings */}
+      <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Custom Code</h2>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }} key={`custom-code-${settings.id}`}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label htmlFor="customHeadCode" style={{ fontWeight: 500 }}>Custom Code for &lt;head&gt; Section</label>
+            <textarea
+              id="customHeadCode"
+              name="customHeadCode"
+              key={`customHeadCode-${settings.customHeadCode || ''}`}
+              defaultValue={settings.customHeadCode || ''}
+              rows={8}
+              placeholder="<!-- Add custom code here (e.g., Google Analytics, meta tags, etc.) -->"
+              style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.875rem', fontFamily: 'monospace', lineHeight: 1.6 }}
+            />
+            <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+              Custom HTML/JavaScript code to inject into the &lt;head&gt; section. Useful for analytics, meta tags, or other head elements.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label htmlFor="customBodyCode" style={{ fontWeight: 500 }}>Custom Code for &lt;body&gt; Section</label>
+            <textarea
+              id="customBodyCode"
+              name="customBodyCode"
+              key={`customBodyCode-${settings.customBodyCode || ''}`}
+              defaultValue={settings.customBodyCode || ''}
+              rows={8}
+              placeholder="<!-- Add custom code here (e.g., chat widgets, tracking scripts, etc.) -->"
+              style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.875rem', fontFamily: 'monospace', lineHeight: 1.6 }}
+            />
+            <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>
+              Custom HTML/JavaScript code to inject into the &lt;body&gt; section. Useful for chat widgets, tracking scripts, or other body elements.
+            </p>
+          </div>
+
+          <button type="submit" className="btn btn-primary" disabled={isPending}>
+            {isPending ? 'Saving...' : 'Save Custom Code'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
 }
 

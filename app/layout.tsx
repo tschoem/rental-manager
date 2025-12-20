@@ -45,6 +45,18 @@ export default async function RootLayout({
   const activeTemplate = await getActiveTemplate();
   const templateStylesPath = getTemplateStylesPath(activeTemplate);
 
+  // Get site settings for custom code
+  let customHeadCode: string | null = null;
+  let customBodyCode: string | null = null;
+  try {
+    const settings = await prisma.siteSettings.findFirst();
+    customHeadCode = settings?.customHeadCode || null;
+    customBodyCode = settings?.customBodyCode || null;
+  } catch (error) {
+    // If database is not available, continue without custom code
+    console.error('Error fetching site settings:', error);
+  }
+
   return (
     <html lang="en">
       <head>
@@ -60,6 +72,32 @@ export default async function RootLayout({
           href={templateStylesPath}
           data-template-stylesheet="true"
         />
+        {/* Custom head code - injected via script that runs immediately (only on non-admin routes) */}
+        {customHeadCode && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                (function() {
+                  // Don't inject custom code on admin routes
+                  if (window.location.pathname.startsWith('/admin')) {
+                    return;
+                  }
+                  var code = ${JSON.stringify(customHeadCode)};
+                  var tempDiv = document.createElement('div');
+                  tempDiv.innerHTML = code;
+                  var nodes = Array.from(tempDiv.childNodes);
+                  nodes.forEach(function(node) {
+                    if (node.nodeType === 1) { // Element node
+                      document.head.appendChild(node.cloneNode(true));
+                    } else if (node.nodeType === 8) { // Comment node
+                      document.head.appendChild(node.cloneNode(true));
+                    }
+                  });
+                })();
+              `,
+            }}
+          />
+        )}
       </head>
       <body suppressHydrationWarning>
         {/* Blocking script - injects CSS immediately to prevent FOUC */}
@@ -82,6 +120,76 @@ export default async function RootLayout({
                         `,
           }}
         />
+        {/* Custom body code - injected via script after React hydration (only on non-admin routes) */}
+        {customBodyCode && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                (function() {
+                  // Don't inject custom code on admin routes
+                  if (window.location.pathname.startsWith('/admin')) {
+                    return;
+                  }
+                  // Wait for React to finish hydrating before injecting custom code
+                  function injectCode() {
+                    var code = ${JSON.stringify(customBodyCode)};
+                    var tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = code;
+                    var nodes = Array.from(tempDiv.childNodes);
+                    nodes.forEach(function(node) {
+                      if (node.nodeType === 1) { // Element node
+                        var cloned = node.cloneNode(true);
+                        document.body.appendChild(cloned);
+                        // Execute scripts
+                        if (cloned.tagName === 'SCRIPT') {
+                          var script = document.createElement('script');
+                          if (cloned.src) {
+                            script.src = cloned.src;
+                          } else {
+                            script.textContent = cloned.textContent;
+                          }
+                          Array.from(cloned.attributes).forEach(function(attr) {
+                            script.setAttribute(attr.name, attr.value);
+                          });
+                          document.body.appendChild(script);
+                          document.body.removeChild(cloned);
+                        }
+                      } else if (node.nodeType === 8) { // Comment node
+                        document.body.appendChild(node.cloneNode(true));
+                      }
+                    });
+                  }
+                  
+                  function waitForHydration() {
+                    // Wait for DOM to be ready
+                    if (document.readyState === 'loading') {
+                      document.addEventListener('DOMContentLoaded', function() {
+                        setTimeout(waitForHydration, 1000);
+                      });
+                      return;
+                    }
+                    // Wait for React hydration - use requestIdleCallback if available
+                    if (window.requestIdleCallback) {
+                      window.requestIdleCallback(function() {
+                        setTimeout(injectCode, 200);
+                      }, { timeout: 2000 });
+                    } else {
+                      // Fallback: wait for load event + additional delay
+                      if (document.readyState === 'complete') {
+                        setTimeout(injectCode, 1000);
+                      } else {
+                        window.addEventListener('load', function() {
+                          setTimeout(injectCode, 1000);
+                        });
+                      }
+                    }
+                  }
+                  waitForHydration();
+                })();
+              `,
+            }}
+          />
+        )}
         <TemplateLoader templateId={activeTemplate} />
         <Providers>
           {children}

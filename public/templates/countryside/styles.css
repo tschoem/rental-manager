@@ -47,10 +47,10 @@
   --radius-full: 9999px;
   --card-radius: 0;
   --image-radius: 0;
-  
+
   /* Alignment */
   --heading-align: center;
-  
+
   /* Accent color for borders/underlines - green for countryside */
   --accent-border-color: #56B665;
 
@@ -305,7 +305,12 @@ button {
 }
 
 /* Global centered headers for countryside template */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   text-align: center;
 }
 
@@ -448,7 +453,6 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: var(--shadow-sm);
   position: sticky;
   top: 0;
-  z-index: 100;
 }
 
 /* Top Info Bar */
@@ -501,7 +505,6 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-primary);
   font-weight: 700;
   text-decoration: none;
-  z-index: 101;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -549,7 +552,6 @@ h1, h2, h3, h4, h5, h6 {
   border: none;
   cursor: pointer;
   padding: 0;
-  z-index: 101;
   position: relative;
 }
 
@@ -587,7 +589,6 @@ h1, h2, h3, h4, h5, h6 {
   flex-direction: column;
   gap: 1.5rem;
   transition: right 0.3s ease;
-  z-index: 100;
   overflow-y: auto;
 }
 
@@ -610,6 +611,23 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--primary-green);
 }
 
+/* Properties button in mobile nav should be uppercase */
+.mobile-nav-properties-button {
+  text-transform: uppercase !important;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border-light);
+  text-decoration: none;
+  color: var(--foreground);
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
+.mobile-nav-properties-button:hover {
+  color: var(--primary-green);
+}
+
+
 .mobile-nav-overlay {
   display: none;
   position: fixed;
@@ -618,7 +636,6 @@ h1, h2, h3, h4, h5, h6 {
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 99;
 }
 
 /* Breadcrumbs */
@@ -657,6 +674,29 @@ h1, h2, h3, h4, h5, h6 {
 
   .top-info-bar {
     display: none;
+  }
+
+  /* Mobile padding for containers */
+  .container {
+    padding: 0 1rem;
+  }
+
+  .container-wide {
+    padding: 0 1rem;
+  }
+
+  .header-content {
+    padding: var(--spacing-md) 1rem;
+  }
+
+  .hero-content {
+    padding: 0 1rem;
+  }
+
+  /* Ensure sections have proper padding on mobile */
+  .section {
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
 }
 

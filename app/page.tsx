@@ -15,24 +15,24 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
     if (!setupStatus.databaseInitialized.configured || !setupStatus.databaseUrl.configured) {
       return <SetupPage setupStatus={setupStatus} />;
     }
-    
+
     // If database is configured but no admin user exists, show setup page
     if (!setupStatus.adminUserExists.configured) {
       return <SetupPage setupStatus={setupStatus} />;
     }
 
     // Check if all required setup steps are complete
-    const requiredSetupComplete = 
+    const requiredSetupComplete =
       setupStatus.databaseUrl.configured &&
       setupStatus.databaseInitialized.configured &&
       setupStatus.nextAuthSecret.configured &&
       setupStatus.adminUserExists.configured;
-    
+
     // If required setup is complete, only show setup page if explicitly requested via query param
     // (for optional configs like SMTP)
     const params = await searchParams;
     const explicitlyRequestSetup = params?.setup === 'true' || params?.setup === '';
-    
+
     // If required setup is complete and user didn't explicitly request setup, show home page
     if (requiredSetupComplete && !explicitlyRequestSetup) {
       // Continue to show home page below
@@ -163,204 +163,208 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
     const showSmtpBanner = !setupStatus.smtp.configured;
 
     return (
-    <div>
-      {/* Header */}
-      <Header />
-      
-      {/* SMTP Configuration Banner */}
-      {showSmtpBanner && (
-        <div style={{
-          background: '#fff3cd',
-          borderBottom: '2px solid #ffc107',
-          padding: '1rem',
-          textAlign: 'center'
-        }}>
-          <div className="container" style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '1rem'
+      <div>
+        {/* Header */}
+        <Header />
+
+        {/* SMTP Configuration Banner */}
+        {showSmtpBanner && (
+          <div style={{
+            background: '#fff3cd',
+            borderBottom: '2px solid #ffc107',
+            padding: '1rem',
+            textAlign: 'center'
           }}>
-            <div style={{ flex: 1, minWidth: '200px' }}>
-              <strong style={{ color: '#856404' }}>⚠️ SMTP not configured</strong>
-              <span style={{ color: '#856404', marginLeft: '0.5rem', fontSize: '0.9rem' }}>
-                Email functionality (password reset, booking notifications) will not work.
-              </span>
-            </div>
-            <Link 
-              href="/?setup=true"
-              style={{
-                padding: '0.5rem 1rem',
-                background: '#667eea',
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: '6px',
-                fontWeight: 500,
-                fontSize: '0.9rem'
-              }}
-            >
-              Configure SMTP
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* Hero Section */}
-      <RotatingHero 
-        singlePropertyMode={singlePropertyMode}
-        heroImages={
-          singlePropertyMode && propertyHeroImages.length > 0
-            ? [...propertyHeroImages, ...(homePageSettings?.heroImages.map(img => img.url) || [])]
-            : (homePageSettings?.heroImages.map(img => img.url) || [])
-        }
-        heroTitle={homePageSettings?.heroTitle || "Your Home away from home"}
-        heroSubtitle={homePageSettings?.heroSubtitle || "Enjoy Family hospitality - close to town, airport and beach"}
-        heroCtaText={homePageSettings?.heroCtaText || (singlePropertyMode ? "Explore Rooms" : "Explore Properties")}
-      />
-
-      {/* Features Section */}
-      {homePageSettings?.showFeaturesSection !== false && homePageSettings?.features && homePageSettings.features.length > 0 && (
-        <section className="section" style={{ background: 'var(--off-white)' }}>
-          <div className="container">
-            {homePageSettings.featuresTitle && (
-              <div className="section-header">
-                <h2 className="section-title">{homePageSettings.featuresTitle}</h2>
+            <div className="container" style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '1rem'
+            }}>
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                <strong style={{ color: '#856404' }}>⚠️ SMTP not configured</strong>
+                <span style={{ color: '#856404', marginLeft: '0.5rem', fontSize: '0.9rem' }}>
+                  Email functionality (password reset, booking notifications) will not work.
+                </span>
               </div>
-            )}
-            <div className="features-grid">
-              {homePageSettings.features.map((feature) => (
-                <div key={feature.id} className="feature-card">
-                  <div className="feature-icon">{feature.icon || '📌'}</div>
-                  <h3>{feature.title}</h3>
-                  <p>{feature.description}</p>
+              <Link
+                href="/?setup=true"
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: '#667eea',
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: '6px',
+                  fontWeight: 500,
+                  fontSize: '0.9rem'
+                }}
+              >
+                Configure SMTP
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Hero Section */}
+        <RotatingHero
+          singlePropertyMode={singlePropertyMode}
+          heroImages={
+            singlePropertyMode && propertyHeroImages.length > 0
+              ? [...propertyHeroImages, ...(homePageSettings?.heroImages.map(img => img.url) || [])]
+              : (homePageSettings?.heroImages.map(img => img.url) || [])
+          }
+          heroTitle={homePageSettings?.heroTitle || "Your Home away from home"}
+          heroSubtitle={homePageSettings?.heroSubtitle || "Enjoy Family hospitality - close to town, airport and beach"}
+          heroCtaText={homePageSettings?.heroCtaText || (singlePropertyMode ? "Explore Rooms" : "Explore Properties")}
+        />
+
+        {/* Features Section */}
+        {homePageSettings?.showFeaturesSection !== false && homePageSettings?.features && homePageSettings.features.length > 0 && (
+          <section className="section" style={{ background: 'var(--off-white)' }}>
+            <div className="container">
+              {homePageSettings.featuresTitle && (
+                <div className="section-header">
+                  <h2 className="section-title">{homePageSettings.featuresTitle}</h2>
                 </div>
-              ))}
+              )}
+              <div className="features-grid">
+                {homePageSettings.features.map((feature) => (
+                  <div key={feature.id} className="feature-card">
+                    <div className="feature-icon">{feature.icon || '📌'}</div>
+                    <h3>{feature.title}</h3>
+                    <p>{feature.description}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        </section>
-      )}
+          </section>
+        )}
 
-      {/* About Section */}
-      {homePageSettings?.showAboutSection !== false && (homePageSettings?.aboutTitle || homePageSettings?.aboutDescription) && (
-        <section className="section">
-          <div className="container text-center">
-            {homePageSettings.aboutTitle && (
-              <h2 className="section-title">{homePageSettings.aboutTitle}</h2>
-            )}
-            {homePageSettings.aboutDescription && (
-              <p className="section-subtitle">
-                {homePageSettings.aboutDescription}
-              </p>
-            )}
-          </div>
-        </section>
-      )}
+        {/* About Section */}
+        {homePageSettings?.showAboutSection !== false && (homePageSettings?.aboutTitle || homePageSettings?.aboutDescription) && (
+          <section className="section">
+            <div className="container text-center">
+              {homePageSettings.aboutTitle && (
+                <h2 className="section-title">{homePageSettings.aboutTitle}</h2>
+              )}
+              {homePageSettings.aboutDescription && (
+                <p className="section-subtitle">
+                  {homePageSettings.aboutDescription}
+                </p>
+              )}
+            </div>
+          </section>
+        )}
 
-      {/* Properties Section */}
-      {homePageSettings?.showRoomsSection !== false && (
-        <section className="section" id="properties" style={{ background: 'var(--off-white)' }}>
-        <div className="container">
-          <div className="section-header">
-            {homePageSettings?.roomsTitle && (
-              <h2 className="section-title">{homePageSettings.roomsTitle}</h2>
-            )}
-            {homePageSettings?.roomsSubtitle && (
-              <p className="section-subtitle">
-                {homePageSettings.roomsSubtitle}
-              </p>
-            )}
-          </div>
-
-          {singlePropertyMode ? (
-            // Single Property Mode: Show Rooms directly
-            rooms.length === 0 ? (
-              <p className="text-center text-muted">No rooms listed yet. Check back soon!</p>
-            ) : (
-              <div className="rooms-grid">
-                {rooms.map((room: any) => (
-                  <div key={room.id} className="room-card">
-                    <img
-                      src={
-                        room.images[0]?.url ||
-                        (properties.find(p => p.id === room.propertyId)?.images[0]?.url) ||
-                        '/placeholder-beach.jpg'
-                      }
-                      alt={room.name}
-                      className="room-image"
-                    />
-                    <div className="room-content">
-                      <h3>{room.name}</h3>
-                      <p className="rooms-count">{room.description?.substring(0, 100)}...</p>
-                      <p className="location" style={{ fontWeight: 'bold', color: 'var(--ocean-blue)' }}>
-                        {room.price ? `€${room.price} / night` : 'Contact for pricing'}
-                      </p>
-                      <Link href={`/rooms/${room.id}`} className="btn btn-primary" style={{ width: '100%' }}>
-                        View Details
-                      </Link>
-                    </div>
-                  </div>
-                ))}
+        {/* Properties Section */}
+        {homePageSettings?.showRoomsSection !== false && (
+          <section className="section" id="properties" style={{ background: 'var(--off-white)' }}>
+            <div className="container">
+              <div className="section-header">
+                {homePageSettings?.roomsTitle && (
+                  <h2 className="section-title">{homePageSettings.roomsTitle}</h2>
+                )}
+                {homePageSettings?.roomsSubtitle && (
+                  <p className="section-subtitle">
+                    {homePageSettings.roomsSubtitle}
+                  </p>
+                )}
               </div>
-            )
-          ) : (
-            // Multi-Property Mode: Show Properties
-            properties.length === 0 ? (
-              <p className="text-center text-muted">No properties listed yet. Check back soon!</p>
-            ) : (
-              <div className="rooms-grid">
-                {properties.map((property: any) => (
-                  <div key={property.id} className="room-card">
-                    <img
-                      src={property.rooms[0]?.images[0]?.url || '/placeholder-beach.jpg'}
-                      alt={property.name}
-                      className="room-image"
-                    />
-                    <div className="room-content">
-                      <h3>{property.name}</h3>
-                      <p className="location">{property.address}</p>
-                      <p className="rooms-count">{property.rooms.length} {property.rooms.length === 1 ? 'Room' : 'Rooms'} Available</p>
-                      <Link href={`/properties/${property.id}`} className="btn btn-primary" style={{ width: '100%' }}>
-                        Check Availability
-                      </Link>
-                    </div>
+
+              {singlePropertyMode ? (
+                // Single Property Mode: Show Rooms directly
+                rooms.length === 0 ? (
+                  <p className="text-center text-muted">No rooms listed yet. Check back soon!</p>
+                ) : (
+                  <div className="rooms-grid">
+                    {rooms.map((room: any) => (
+                      <div key={room.id} className="room-card">
+                        <img
+                          src={
+                            room.images[0]?.url ||
+                            (properties.find(p => p.id === room.propertyId)?.images[0]?.url) ||
+                            '/placeholder-beach.jpg'
+                          }
+                          alt={room.name}
+                          className="room-image"
+                        />
+                        <div className="room-content">
+                          <h3>{room.name}</h3>
+                          <p className="rooms-count">{room.description?.substring(0, 100)}...</p>
+                          <p className="location" style={{ fontWeight: 'bold', color: 'var(--ocean-blue)' }}>
+                            {room.price ? `€${room.price} / night` : 'Contact for pricing'}
+                          </p>
+                          <Link href={`/rooms/${room.id}`} className="btn btn-primary" style={{ width: '100%' }}>
+                            View Details
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )
-          )}
-        </div>
-      </section>
-      )}
+                )
+              ) : (
+                // Multi-Property Mode: Show Properties
+                properties.length === 0 ? (
+                  <p className="text-center text-muted">No properties listed yet. Check back soon!</p>
+                ) : (
+                  <div className="rooms-grid">
+                    {properties.map((property: any) => (
+                      <div key={property.id} className="room-card">
+                        <img
+                          src={property.rooms[0]?.images[0]?.url || '/placeholder-beach.jpg'}
+                          alt={property.name}
+                          className="room-image"
+                        />
+                        <div className="room-content">
+                          <h3>{property.name}</h3>
+                          <p className="location">{property.address}</p>
+                          {property.description ? (
+                            <p className="rooms-count">{property.description.length > 150 ? `${property.description.substring(0, 150)}...` : property.description}</p>
+                          ) : (
+                            <p className="rooms-count">{property.rooms.length} {property.rooms.length === 1 ? 'Room' : 'Rooms'} Available</p>
+                          )}
+                          <Link href={`/properties/${property.id}`} className="btn btn-primary" style={{ width: '100%' }}>
+                            Check Availability
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+            </div>
+          </section>
+        )}
 
-      {/* CTA Section */}
-      {homePageSettings?.showCtaSection !== false && (homePageSettings?.ctaTitle || homePageSettings?.ctaDescription) && (
-        <section className="section">
-          <div className="container text-center">
-            {homePageSettings.ctaTitle && (
-              <h2 className="section-title">{homePageSettings.ctaTitle}</h2>
-            )}
-            {homePageSettings.ctaDescription && (
-              <p className="section-subtitle">
-                {homePageSettings.ctaDescription}
-              </p>
-            )}
-          </div>
-        </section>
-      )}
+        {/* CTA Section */}
+        {homePageSettings?.showCtaSection !== false && (homePageSettings?.ctaTitle || homePageSettings?.ctaDescription) && (
+          <section className="section">
+            <div className="container text-center">
+              {homePageSettings.ctaTitle && (
+                <h2 className="section-title">{homePageSettings.ctaTitle}</h2>
+              )}
+              {homePageSettings.ctaDescription && (
+                <p className="section-subtitle">
+                  {homePageSettings.ctaDescription}
+                </p>
+              )}
+            </div>
+          </section>
+        )}
 
-      {/* Footer */}
-      <Footer />
-    </div>
-  );
+        {/* Footer */}
+        <Footer />
+      </div>
+    );
   } catch (error) {
     // Check if it's a database initialization error
-    if (error instanceof Prisma.PrismaClientInitializationError || 
-        (error instanceof Error && (
-          error.message.includes('DATABASE_URL') || 
-          error.message.includes('datasource') ||
-          error.message.includes('You must provide a nonempty URL')
-        ))) {
+    if (error instanceof Prisma.PrismaClientInitializationError ||
+      (error instanceof Error && (
+        error.message.includes('DATABASE_URL') ||
+        error.message.includes('datasource') ||
+        error.message.includes('You must provide a nonempty URL')
+      ))) {
       // Get setup status to show what's configured
       const setupStatus = await getSetupStatus();
       return <SetupPage setupStatus={setupStatus} />;

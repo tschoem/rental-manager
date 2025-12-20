@@ -9,3 +9,37 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Global z-index hierarchy for site-level elements (applies to all templates) */
+.site-header {
+  z-index: 100;
+}
+
+.site-logo {
+  z-index: 10;
+  position: relative;
+}
+
+.hamburger-button {
+  z-index: 103;
+  position: relative;
+}
+
+.mobile-nav {
+  z-index: 102;
+}
+
+.mobile-nav-overlay {
+  z-index: 99;
+}
+
+/* Grey out site logo when mobile menu is open */
+body.mobile-menu-open .site-logo {
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+}
+
+body.mobile-menu-open .site-logo span,
+body.mobile-menu-open .site-logo img {
+  opacity: 0.5;
+}

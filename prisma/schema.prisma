@@ -97,6 +97,10 @@ model SiteSettings {
   footerText         String?  // Custom footer text
   footerShowPoweredBy Boolean @default(true) // Show "Powered by Rental Manager" link
   
+  // Custom Code
+  customHeadCode     String?  // Custom code to inject in <head> section
+  customBodyCode     String?  // Custom code to inject in <body> section
+  
   createdAt          DateTime?
   updatedAt          DateTime?
 }

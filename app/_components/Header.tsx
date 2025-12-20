@@ -18,6 +18,15 @@ export default async function Header() {
     propertyId = firstProperty?.id ?? null;
   }
 
+  // Get all properties if in multiple property mode
+  let properties: Array<{ id: string; name: string }> = [];
+  if (!singlePropertyMode) {
+    properties = await prisma.property.findMany({
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, name: true }
+    });
+  }
+
   const iconType = settings?.siteIconType || 'emoji';
   const showIcon = iconType === 'emoji' ? settings?.siteIcon : settings?.siteIconImageUrl;
 
@@ -26,7 +35,7 @@ export default async function Header() {
       <div className="container header-content">
         <Link href="/" className="site-logo" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           {showIcon && (
-            <span style={{ 
+            <span style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -38,12 +47,12 @@ export default async function Header() {
               {iconType === 'emoji' ? (
                 settings?.siteIcon
               ) : (
-                <img 
-                  src={settings?.siteIconImageUrl || ''} 
-                  alt="Site icon" 
-                  style={{ 
-                    width: '1.5em', 
-                    height: '1.5em', 
+                <img
+                  src={settings?.siteIconImageUrl || ''}
+                  alt="Site icon"
+                  style={{
+                    width: '1.5em',
+                    height: '1.5em',
                     objectFit: 'contain',
                     display: 'block',
                     margin: 0
@@ -58,6 +67,7 @@ export default async function Header() {
           singlePropertyMode={singlePropertyMode}
           propertyId={propertyId}
           showAboutPage={showAboutPage}
+          properties={properties}
         />
       </div>
     </header>
